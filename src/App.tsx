@@ -18,6 +18,8 @@ import Orders from "./pages/Orders/Orders";
 import Block from "./pages/Blocks/Block";
 import Dashboard from "./pages/Dashboard/Dashboard";
 import Tables from "./pages/Tables/Tables";
+import Category from "./pages/Category/Category";
+import Items from "./pages/Items/Items";
 
 type JwtPayload = {
   id: number | string;
@@ -125,6 +127,22 @@ function App() {
             element={
               <MenuLayout>
                 <Tables />
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/category"
+            element={
+              <MenuLayout>
+                <Category />
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/items"
+            element={
+              <MenuLayout>
+                <Items />
               </MenuLayout>
             }
           />

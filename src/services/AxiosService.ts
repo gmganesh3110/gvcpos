@@ -10,7 +10,7 @@ export const loginAxios = (url: string, payload: any) => {
   }
 };
 
-export const postAxios = (url: string, payload: any) => {
+export const postAxios = (url: string, payload?: any) => {
   try {
     return axios.post(BACKEND_API_URL + url, payload);
   } catch (err) {

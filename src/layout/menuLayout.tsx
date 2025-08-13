@@ -47,191 +47,165 @@ const MenuLayout: React.FC<PropsWithChildren> = ({ children }) => {
     setOpenMenuKey((prev) => (prev === key ? null : key));
   };
 
-const mainMenuItems: MenuItem[] = [
-  {
-    key: "dashboard",
-    label: "Dashboard",
-    icon: <FaTachometerAlt />,
-    to: "/",
-  },
-  {
-    key: "sales",
-    label: "Sales",
-    icon: <FaChartBar />,
-    children: [
-      {
-        key: "orders",
-        label: "Orders",
-        to: "/orders",
-        icon: <FaShoppingCart />,
-      },
-      {
-        key: "reservations",
-        label: "Reservations",
-        icon: <FaCalendarCheck />,
-        to: "/reservations",
-      },
-    ],
-  },
-  {
-    key: "inventory",
-    label: "Inventory",
-    icon: <FaBox />,
-    children: [
-      {
-        key: "items",
-        label: "Items",
-        to: "/items",
-        icon: <FaBoxes />,
-      },
-      {
-        key: "categories",
-        label: "Categories",
-        to: "/categories",
-        icon: <FaTags />,
-      },
-    ],
-  },
-  {
-    key: "floor-management",
-    label: "Floor Management",
-    icon: <FaBuilding />,
-    children: [
-      {
-        key: "block-floor",
-        label: "Block or Floor",
-        to: "/block-floor",
-        icon: <FaLayerGroup />,
-      },
-      {
-        key: "tables",
-        label: "Tables",
-        to: "/tables",
-        icon: <FaTable />,
-      },
-    ],
-  },
-  {
-    key: "master-data",
-    label: "Master Data",
-    icon: <FaThList />,
-    children: [
-      {
-        key: "paymode",
-        label: "Paymode",
-        to: "/paymode",
-        icon: <FaMoneyBillWave />,
-      },
-      {
-        key: "order-status",
-        label: "Order Status",
-        to: "/order-status",
-        icon: <FaClipboardCheck />,
-      },
-      {
-        key: "order-types",
-        label: "Order Types",
-        to: "/order-types",
-        icon: <FaShoppingCart />,
-      },
-    ],
-  },
-  {
-    key: "user-management",
-    label: "User Management",
-    icon: <FaUserShield />,
-    children: [
-      {
-        key: "users",
-        label: "Users",
-        to: "/users",
-        icon: <FaUser />,
-      },
-      {
-        key: "user-roles",
-        label: "User Roles",
-        to: "/user-roles",
-        icon: <FaUserPlus />,
-      },
-      {
-        key: "permissions",
-        label: "Permissions",
-        to: "/user-role-permissions",
-        icon: <FaKey />,
-      },
-    ],
-  },
-  {
-    key: "staff",
-    label: "Staff",
-    icon: <FaUserFriends />,
-    children: [
-      {
-        key: "staff-list",
-        label: "Staff List",
-        to: "/staff",
-        icon: <FaUser />,
-      },
-      {
-        key: "salary",
-        label: "Salary",
-        to: "/staff/salary",
-        icon: <FaMoneyCheckAlt />,
-      },
-    ],
-  },
-   {
-    key: "Purchase-Order",
-    label: "Purchase Orders",
-    icon: <FaFileInvoiceDollar />,
-    to:'/purchase-orders'
-    
-  },
-  {
-    key: "expense",
-    label: "Expense",
-    icon: <FaMoneyBillWave />,
-    children: [
-      {
-        key: "expense-list",
-        label: "Expense List",
-        to: "/expenses",
-        icon: <FaFileInvoiceDollar />,
-      },
-      {
-        key: "expense-items",
-        label: "Expense Items",
-        to: "/expenses/items",
-        icon: <FaClipboardList />,
-      },
-    ],
-  },
-  {
-    key: "reports",
-    label: "Reports & Analytics",
-    icon: <FaChartLine />,
-    children: [
-      {
-        key: "sales-report",
-        label: "Sales Report",
-        to: "/reports/sales",
-        icon: <FaChartPie />,
-      },
-      {
-        key: "inventory-report",
-        label: "Inventory Report",
-        to: "/reports/inventory",
-        icon: <FaClipboardList />,
-      },
-      {
-        key: "staff-performance",
-        label: "Staff Performance",
-        to: "/reports/staff",
-        icon: <FaUserTie />,
-      },
-    ],
-  },
-];
+  const mainMenuItems: MenuItem[] = [
+    {
+      key: "dashboard",
+      label: "Dashboard",
+      icon: <FaTachometerAlt />,
+      to: "/",
+    },
+    {
+      key: "sales",
+      label: "Sales",
+      icon: <FaChartBar />,
+      children: [
+        {
+          key: "orders",
+          label: "Orders",
+          to: "/orders",
+          icon: <FaShoppingCart />,
+        },
+        {
+          key: "reservations",
+          label: "Reservations",
+          icon: <FaCalendarCheck />,
+          to: "/reservations",
+        },
+      ],
+    },
+    {
+      key: "inventory",
+      label: "Inventory",
+      icon: <FaBox />,
+      children: [
+        {
+          key: "items",
+          label: "Items",
+          to: "/items",
+          icon: <FaBoxes />,
+        },
+        {
+          key: "categories",
+          label: "Categories",
+          to: "/category",
+          icon: <FaTags />,
+        },
+      ],
+    },
+    {
+      key: "floor-management",
+      label: "Floor Management",
+      icon: <FaBuilding />,
+      children: [
+        {
+          key: "block-floor",
+          label: "Block or Floor",
+          to: "/block-floor",
+          icon: <FaLayerGroup />,
+        },
+        {
+          key: "tables",
+          label: "Tables",
+          to: "/tables",
+          icon: <FaTable />,
+        },
+      ],
+    },
+    {
+      key: "user-management",
+      label: "User Management",
+      icon: <FaUserShield />,
+      children: [
+        {
+          key: "users",
+          label: "Users",
+          to: "/users",
+          icon: <FaUser />,
+        },
+        {
+          key: "user-roles",
+          label: "User Roles",
+          to: "/user-roles",
+          icon: <FaUserPlus />,
+        },
+        {
+          key: "permissions",
+          label: "Permissions",
+          to: "/user-role-permissions",
+          icon: <FaKey />,
+        },
+      ],
+    },
+    {
+      key: "staff",
+      label: "Staff",
+      icon: <FaUserFriends />,
+      children: [
+        {
+          key: "staff-list",
+          label: "Staff List",
+          to: "/staff",
+          icon: <FaUser />,
+        },
+        {
+          key: "salary",
+          label: "Salary",
+          to: "/staff/salary",
+          icon: <FaMoneyCheckAlt />,
+        },
+      ],
+    },
+    {
+      key: "Purchase-Order",
+      label: "Purchase Orders",
+      icon: <FaFileInvoiceDollar />,
+      to: "/purchase-orders",
+    },
+    {
+      key: "expense",
+      label: "Expense",
+      icon: <FaMoneyBillWave />,
+      children: [
+        {
+          key: "expense-list",
+          label: "Expense List",
+          to: "/expenses",
+          icon: <FaFileInvoiceDollar />,
+        },
+        {
+          key: "expense-items",
+          label: "Expense Items",
+          to: "/expenses/items",
+          icon: <FaClipboardList />,
+        },
+      ],
+    },
+    {
+      key: "reports",
+      label: "Reports & Analytics",
+      icon: <FaChartLine />,
+      children: [
+        {
+          key: "sales-report",
+          label: "Sales Report",
+          to: "/reports/sales",
+          icon: <FaChartPie />,
+        },
+        {
+          key: "inventory-report",
+          label: "Inventory Report",
+          to: "/reports/inventory",
+          icon: <FaClipboardList />,
+        },
+        {
+          key: "staff-performance",
+          label: "Staff Performance",
+          to: "/reports/staff",
+          icon: <FaUserTie />,
+        },
+      ],
+    },
+  ];
   const renderMenuItem = (item: MenuItem) => {
     if (item.children) {
       const isOpen = openMenuKey === item.key;
@@ -331,7 +305,9 @@ const mainMenuItems: MenuItem[] = [
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 p-6 bg-gray-50 min-h-screen w-[80%]">{children}</div>
+      <div className="flex-1 p-6 bg-gray-50 min-h-screen w-[80%]">
+        {children}
+      </div>
     </div>
   );
 };

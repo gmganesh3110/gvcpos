@@ -5,10 +5,13 @@ import { FiPlus } from "react-icons/fi";
 import Loader from "../../components/Loader";
 import { useSelector } from "react-redux";
 
-interface Category {
+interface Item {
   id: number;
-  category: string;
+  name: string;
   description: string;
+  price: number;
+  available: boolean;
+  categoryId: number;
   type: string;
   createdBy: string;
   createdAt: string;
@@ -17,25 +20,34 @@ interface Category {
   activeStatus: number;
 }
 
+interface Category {
+  id: number;
+  category: string;
+}
 
 const limit = 5;
 
-const CategoryManagement: React.FC = () => {
+const Items: React.FC = () => {
   const [page, setPage] = useState<number>(1);
-  const [categoryData, setCategoryData] = useState<Category[]>([]);
+  const [itemData, setItemData] = useState<Item[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [totalCount, setTotalCount] = useState<number>(0);
-  const [searchCategory, setSearchCategory] = useState<string>("");
-  const [searchType, setSearchType] = useState<string>("");
+  const [searchName, setSearchName] = useState<string>("");
   const [searchStatus, setSearchStatus] = useState<string>("");
   const [addForm, setAddForm] = useState<boolean>(false);
   const [editForm, setEditForm] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [category, setCategory] = useState<string>("");
+  const [name, setName] = useState<string>("");
   const [description, setDescription] = useState<string>("");
+  const [price, setPrice] = useState<number>(0);
+  const [available, setAvailable] = useState<boolean>(true);
+  const [categoryId, setCategoryId] = useState<number>(0);
   const [type, setType] = useState<string>("");
-  const [status, setStatus] = useState<number>(1);
-  const [editCategory, setEditCategory] = useState<string>("");
+  const [editName, setEditName] = useState<string>("");
   const [editDescription, setEditDescription] = useState<string>("");
+  const [editPrice, setEditPrice] = useState<number>(0);
+  const [editAvailable, setEditAvailable] = useState<boolean>(true);
+  const [editCategoryId, setEditCategoryId] = useState<number>(0);
   const [editType, setEditType] = useState<string>("");
   const [editStatus, setEditStatus] = useState<number>(1);
   const [editId, setEditId] = useState<number>(0);
@@ -46,20 +58,20 @@ const CategoryManagement: React.FC = () => {
   const totalPages = Math.ceil(totalCount / limit);
 
   useEffect(() => {
-    getAllCategories();
-  }, [page, searchCategory, searchType, searchStatus]);
+    getAllItems();
+    fetchCategories();
+  }, [page, searchName, searchStatus]);
 
-  const getAllCategories = async () => {
+  const getAllItems = async () => {
     try {
       setIsLoading(true);
-      const res: any = await postAxios("/categories/getall", {
+      const res: any = await postAxios("/items/getall", {
         status: searchStatus || undefined,
-        category: searchCategory,
-        type: searchType,
+        name: searchName,
         start: (page - 1) * limit,
         limit,
       });
-      setCategoryData(res.data[0]);
+      setItemData(res.data[0]);
       setTotalCount(res.data[1][0].tot);
       setIsLoading(false);
     } catch (err) {
@@ -68,16 +80,33 @@ const CategoryManagement: React.FC = () => {
     }
   };
 
+  const fetchCategories = async () => {
+    try {
+      const res: any = await postAxios("/categories/getall", {
+        activeStatus: 1,
+        start: 0,
+        limit: 50,
+      });
+      setCategories(res.data[0]);
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
   const handleEdit = async (id: number) => {
     setEditId(id);
     try {
       setEditForm(true);
       setIsLoading(true);
-      const res: any = await postAxios("/categories/getone", { id });
-      setEditCategory(res.data[0][0].category);
-      setEditDescription(res.data[0][0].description);
-      setEditType(res.data[0][0].type);
-      setEditStatus(res.data[0][0].activeStatus);
+      const res: any = await postAxios("/items/getone", { id });
+      const item = res.data[0][0];
+      setEditName(item.name);
+      setEditDescription(item.description);
+      setEditPrice(item.price);
+      setEditAvailable(item.available);
+      setEditCategoryId(item.categoryId);
+      setEditType(item.type);
+      setEditStatus(item.activeStatus);
       setIsLoading(false);
     } catch (err) {
       setIsLoading(false);
@@ -86,56 +115,67 @@ const CategoryManagement: React.FC = () => {
   };
 
   const handleDelete = async (id: number) => {
-    await postAxios("/categories/delete", {
+    await postAxios("/items/delete", {
       id,
       updatedBy: User.id,
     });
-    getAllCategories();
+    getAllItems();
   };
 
   const handleSearch = () => {
     setPage(1);
-    getAllCategories();
+    getAllItems();
   };
 
   const onAddFormClose = () => {
     setAddForm(false);
-    setCategory("");
+    setName("");
     setDescription("");
+    setPrice(0);
+    setAvailable(true);
+    setCategoryId(0);
     setType("");
-    setStatus(1);
   };
 
-  const handleUpdateCategory = async () => {
-    if (!editCategory) return;
+  const handleUpdateItem = async () => {
+    if (!editName) return;
 
-    await postAxios("/categories/update", {
+    await postAxios("/items/update", {
       id: editId,
-      category: editCategory,
+      name: editName,
       description: editDescription,
+      price: editPrice,
+      available: editAvailable,
+      categoryId: editCategoryId,
       type: editType,
       activeStatus: editStatus,
       updatedBy: User.id,
     });
     setEditForm(false);
-    getAllCategories();
+    getAllItems();
     setEditId(0);
   };
 
-  const handleAddCategory = async () => {
-    if (!category) return;
+  const handleAddItem = async () => {
+    if (!name || !categoryId) return;
     try {
-      await postAxios("/categories/add", {
-        category,
+      await postAxios("/items/add", {
+        name,
         description,
+        price,
+        available,
+        categoryId,
         type,
-        activeStatus: status,
+        activeStatus: 1,
         createdBy: User.id,
       });
       setAddForm(false);
-      getAllCategories();
-      setCategory("");
+      getAllItems();
+      setName("");
       setDescription("");
+      setPrice(0);
+      setAvailable(true);
+      setCategoryId(0);
       setType("");
     } catch (err: any) {
       alert(err.message);
@@ -152,12 +192,12 @@ const CategoryManagement: React.FC = () => {
       <div className="p-6">
         {/* Title + Actions */}
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold">Category Management</h2>
+          <h2 className="text-xl font-bold">Items</h2>
           <button
             onClick={() => setAddForm(true)}
             className="px-4 py-2 rounded-md bg-orange-700 text-white flex items-center gap-2 hover:bg-orange-600 cursor-pointer"
           >
-            <FiPlus /> Add Category
+            <FiPlus /> Add Item
           </button>
         </div>
 
@@ -166,19 +206,10 @@ const CategoryManagement: React.FC = () => {
           <div>
             <input
               type="text"
-              placeholder="Search category"
+              placeholder="Search item"
               className="border border-gray-300 rounded-md px-3 py-2 w-64"
-              value={searchCategory}
-              onChange={(e) => setSearchCategory(e.target.value)}
-            />
-          </div>
-          <div>
-            <input
-              type="text"
-              placeholder="Search type"
-              className="border border-gray-300 rounded-md px-3 py-2 w-64"
-              value={searchType}
-              onChange={(e) => setSearchType(e.target.value)}
+              value={searchName}
+              onChange={(e) => setSearchName(e.target.value)}
             />
           </div>
           <div>
@@ -215,16 +246,19 @@ const CategoryManagement: React.FC = () => {
                       Id
                     </th>
                     <th className="p-5 text-left text-sm font-semibold text-gray-900">
-                      Category
+                      Name
                     </th>
                     <th className="p-5 text-left text-sm font-semibold text-gray-900">
                       Description
                     </th>
                     <th className="p-5 text-left text-sm font-semibold text-gray-900">
-                      Type
+                      Price
                     </th>
                     <th className="p-5 text-left text-sm font-semibold text-gray-900">
-                      Created By
+                      Category
+                    </th>
+                    <th className="p-5 text-left text-sm font-semibold text-gray-900">
+                      Type
                     </th>
                     <th className="p-5 text-left text-sm font-semibold text-gray-900">
                       Status
@@ -235,25 +269,28 @@ const CategoryManagement: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-300">
-                  {categoryData.map((cat: Category) => (
+                  {itemData.map((item: Item) => (
                     <tr
-                      key={cat.id}
+                      key={item.id}
                       className="transition-all duration-500 hover:bg-gray-50"
                     >
                       <td className="p-5 text-sm font-medium text-gray-900">
-                        {cat.id}
+                        {item.id}
                       </td>
                       <td className="p-5 text-sm font-medium text-gray-900">
-                        {cat.category}
+                        {item.name}
                       </td>
                       <td className="p-5 text-sm font-medium text-gray-900">
-                        {cat.description}
+                        {item.description || "-"}
                       </td>
                       <td className="p-5 text-sm font-medium text-gray-900">
-                        {cat.type}
+                        ${item?.price}
                       </td>
                       <td className="p-5 text-sm font-medium text-gray-900">
-                        {cat.createdBy}
+                        {categories.find(c => c.id === item.categoryId)?.category || "-"}
+                      </td>
+                      <td className="p-5 text-sm font-medium text-gray-900">
+                        {item?.type}
                       </td>
                       <td className="p-5 text-sm font-medium text-gray-900">
                         <div className="py-1.5 px-2.5 bg-emerald-50 rounded-full flex justify-center w-20 items-center gap-1">
@@ -265,7 +302,7 @@ const CategoryManagement: React.FC = () => {
                           >
                             <circle cx="2.5" cy="3" r="2.5" fill="#059669" />
                           </svg>
-                          {cat.activeStatus == 1 ? (
+                          {item.activeStatus == 1 ? (
                             <span className="font-medium text-xs text-green-600">
                               Active
                             </span>
@@ -279,7 +316,7 @@ const CategoryManagement: React.FC = () => {
                       <td className="flex p-5 gap-2">
                         {/* Edit */}
                         <button
-                          onClick={() => handleEdit(cat.id)}
+                          onClick={() => handleEdit(item.id)}
                           className="p-2 rounded-full bg-white transition-all duration-200 hover:bg-orange-500 cursor-pointer"
                         >
                           <HiPencilAlt className="w-5 h-5 text-indigo-500 hover:text-white" />
@@ -287,7 +324,7 @@ const CategoryManagement: React.FC = () => {
                         {/* Delete */}
                         <button
                           onClick={() => {
-                            setSelectedId(cat.id);
+                            setSelectedId(item.id);
                             setShowConfirm(true);
                           }}
                           className="p-2 rounded-full bg-white transition-all duration-200 hover:bg-red-600 cursor-pointer"
@@ -357,7 +394,7 @@ const CategoryManagement: React.FC = () => {
               Are you sure?
             </h3>
             <p className="text-sm text-gray-600 mb-6">
-              Do you really want to delete this category? This action cannot be
+              Do you really want to delete this item? This action cannot be
               undone.
             </p>
             <div className="flex justify-end gap-3">
@@ -387,12 +424,12 @@ const CategoryManagement: React.FC = () => {
         </div>
       )}
 
-      {/* Add Category Form */}
+      {/* Add Item Form */}
       {addForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-opacity-40">
           <div className="bg-white rounded-lg shadow-lg w-full max-w-md">
             <div className="flex justify-between items-center border-b px-4 py-2">
-              <h3 className="font-semibold text-lg">Add Category Form</h3>
+              <h3 className="font-semibold text-lg">Add Item Form</h3>
               <button
                 onClick={onAddFormClose}
                 className="text-gray-500 hover:text-black cursor-pointer"
@@ -403,13 +440,13 @@ const CategoryManagement: React.FC = () => {
             <div className="p-8 bg-gray-50 rounded-xl shadow-sm">
               <div className="mb-6">
                 <label className="block mb-2 text-sm font-semibold text-gray-700">
-                  Category Name*
+                  Name*
                 </label>
                 <input
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                   type="text"
-                  placeholder="Enter Category Name"
+                  placeholder="Enter Item Name"
                   className="w-full border border-gray-300 rounded-lg px-4 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   required
                 />
@@ -428,28 +465,60 @@ const CategoryManagement: React.FC = () => {
               </div>
               <div className="mb-6">
                 <label className="block mb-2 text-sm font-semibold text-gray-700">
-                  Type
+                  Price*
                 </label>
                 <input
-                  value={type}
-                  onChange={(e) => setType(e.target.value)}
-                  type="text"
-                  placeholder="Enter Type"
+                  type="number"
+                  value={price}
+                  onChange={(e) => setPrice(parseFloat(e.target.value))}
+                  placeholder="Enter Price"
                   className="w-full border border-gray-300 rounded-lg px-4 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  step="0.01"
+                  min="0"
+                  required
                 />
               </div>
-              <div className="mb-8">
+              <div className="mb-6">
                 <label className="block mb-2 text-sm font-semibold text-gray-700">
-                  Status
+                  Category*
                 </label>
                 <select
                   className="w-full border border-gray-300 rounded-lg px-4 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  onChange={(e) => setStatus(Number(e.target.value))}
-                  value={status}
+                  value={categoryId}
+                  onChange={(e) => setCategoryId(Number(e.target.value))}
+                  required
                 >
-                  <option value={1}>Active</option>
-                  <option value={0}>Inactive</option>
+                  <option value="">Select Category</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.category}
+                    </option>
+                  ))}
                 </select>
+              </div>
+              <div className="mb-6">
+                <label className="block mb-2 text-sm font-semibold text-gray-700">
+                  Type*
+                </label>
+                <input
+                  type="text"
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
+                  placeholder="Enter Type"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+              </div>
+              <div className="mb-6 flex items-center">
+                <input
+                  type="checkbox"
+                  checked={available}
+                  onChange={(e) => setAvailable(e.target.checked)}
+                  className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                />
+                <label className="ml-2 block text-sm text-gray-700">
+                  Available
+                </label>
               </div>
               <div className="flex justify-end gap-3">
                 <button
@@ -461,7 +530,7 @@ const CategoryManagement: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  onClick={handleAddCategory}
+                  onClick={handleAddItem}
                   className="px-6 py-2.5 rounded-lg bg-orange-500 text-white font-medium hover:bg-indigo-700 transition cursor-pointer"
                 >
                   Submit
@@ -472,12 +541,12 @@ const CategoryManagement: React.FC = () => {
         </div>
       )}
 
-      {/* Edit Category Form */}
+      {/* Edit Item Form */}
       {editForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-opacity-40">
           <div className="bg-white rounded-lg shadow-lg w-full max-w-md">
             <div className="flex justify-between items-center border-b px-4 py-2">
-              <h3 className="font-semibold text-lg">Edit Category Form</h3>
+              <h3 className="font-semibold text-lg">Edit Item Form</h3>
               <button
                 onClick={onEditFormClose}
                 className="text-gray-500 hover:text-black cursor-pointer"
@@ -488,13 +557,13 @@ const CategoryManagement: React.FC = () => {
             <div className="p-8 bg-gray-50 rounded-xl shadow-sm">
               <div className="mb-6">
                 <label className="block mb-2 text-sm font-semibold text-gray-700">
-                  Category Name*
+                  Name*
                 </label>
                 <input
                   type="text"
-                  value={editCategory}
-                  onChange={(e) => setEditCategory(e.target.value)}
-                  placeholder="Enter Category Name"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="Enter Item Name"
                   className="w-full border border-gray-300 rounded-lg px-4 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   required
                 />
@@ -513,15 +582,60 @@ const CategoryManagement: React.FC = () => {
               </div>
               <div className="mb-6">
                 <label className="block mb-2 text-sm font-semibold text-gray-700">
-                  Type
+                  Price*
                 </label>
                 <input
+                  type="number"
+                  value={editPrice}
+                  onChange={(e) => setEditPrice(parseFloat(e.target.value))}
+                  placeholder="Enter Price"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  step="0.01"
+                  min="0"
+                  required
+                />
+              </div>
+              <div className="mb-6">
+                <label className="block mb-2 text-sm font-semibold text-gray-700">
+                  Category*
+                </label>
+                <select
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  value={editCategoryId}
+                  onChange={(e) => setEditCategoryId(Number(e.target.value))}
+                  required
+                >
+                  <option value="">Select Category</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.category}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="mb-6">
+                <label className="block mb-2 text-sm font-semibold text-gray-700">
+                  Type*
+                </label>
+                <input
+                  type="text"
                   value={editType}
                   onChange={(e) => setEditType(e.target.value)}
-                  type="text"
                   placeholder="Enter Type"
                   className="w-full border border-gray-300 rounded-lg px-4 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  required
                 />
+              </div>
+              <div className="mb-6 flex items-center">
+                <input
+                  type="checkbox"
+                  checked={editAvailable}
+                  onChange={(e) => setEditAvailable(e.target.checked)}
+                  className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                />
+                <label className="ml-2 block text-sm text-gray-700">
+                  Available
+                </label>
               </div>
               <div className="mb-8">
                 <label className="block mb-2 text-sm font-semibold text-gray-700">
@@ -545,7 +659,7 @@ const CategoryManagement: React.FC = () => {
                   Cancel
                 </button>
                 <button
-                  onClick={handleUpdateCategory}
+                  onClick={handleUpdateItem}
                   type="submit"
                   className="px-6 py-2.5 rounded-lg bg-orange-500 text-white font-medium hover:bg-indigo-700 transition cursor-pointer"
                 >
@@ -560,4 +674,4 @@ const CategoryManagement: React.FC = () => {
   );
 };
 
-export default CategoryManagement;
+export default Items; 
