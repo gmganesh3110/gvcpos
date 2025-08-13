@@ -1,0 +1,12 @@
+      :root {
+        --primary-color: #F97316;--secondary-color: #F5E8DD;--background-color: #FFFFFF;
+        --text-primary: #4A2E2A;--text-secondary: #8B5E3C;--accent-color: #E5D9D2;--button-primary-bg: #EF4444;--button-secondary-bg: #3B82F6;--status-pending: #FBBF24;
+        --status-confirmed: #34D399;
+        --status-delivered: #60A5FA;
+        --status-cancelled: #F87171;
+      }
+      body {
+        font-family: 'Work Sans', sans-serif;
+        background-color: var(--background-color);
+        color: var(--text-primary);
+      }
