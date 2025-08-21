@@ -20,6 +20,8 @@ import Dashboard from "./pages/Dashboard/Dashboard";
 import Tables from "./pages/Tables/Tables";
 import Category from "./pages/Category/Category";
 import Items from "./pages/Items/Items";
+import ExpenseItems from "./pages/ExpenseItems/ExpenseItems";
+import Expenses from "./pages/Expenses/Expenses";
 
 type JwtPayload = {
   id: number | string;
@@ -146,8 +148,27 @@ function App() {
               </MenuLayout>
             }
           />
+          <Route
+            path="/expenses/items"
+            element={
+              <MenuLayout>
+                <ExpenseItems />
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/expenses"
+            element={
+              <MenuLayout>
+                <Expenses />
+              </MenuLayout>
+            }
+          />
         </Route>
-        <Route path="*" element={<Navigate to={token ? "/" : "/login"} />} />
+        <Route
+          path="*"
+          element={<Navigate to={token ? "/expenses/items" : "/login"} />}
+        />
       </Routes>
     </BrowserRouter>
   );

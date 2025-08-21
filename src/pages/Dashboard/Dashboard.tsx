@@ -44,6 +44,7 @@ const Dashboard = () => {
   const [existingOrderData, setExistingOrderData] = useState<any>(null);
   const [isPaid, setIsPaid] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<string | null>(null);
+  const [orderStatus, setOrderStatus] = useState<"ORDERED" | null>(null);
   const User = useSelector((state: any) => state.auth.user);
   const filteredItems = selectedCategory
     ? items.filter((i) => i.categoryId === selectedCategory)
@@ -181,6 +182,7 @@ const Dashboard = () => {
     const res = await postAxios("/orders/createorder", orderData);
     if (res) {
       fetchTables();
+      setOrder([]);
       setNewOrder(false);
     }
   };
@@ -223,7 +225,7 @@ const Dashboard = () => {
         isPaid: existingOrderData.isPaid,
         paymentMode: existingOrderData.paymentMethod,
         modifiedBy: User.id,
-        status: OrderStatus.COMPLETED,
+        status: existingOrderData.status,
       });
       setExistingOrder(false);
       fetchTables();
@@ -238,17 +240,35 @@ const Dashboard = () => {
         <h2 className="text-3xl font-bold text-gray-800">Order Management</h2>
       </div>
       {Object.entries(groupedTables).map(([blockName, blockTables]) => (
-        <div key={blockName} className="mb-8">
-          <h3 className="text-xl font-semibold text-gray-700 mb-4">
+        <div key={blockName} className="mb-10">
+          <h3 className="text-2xl font-bold text-gray-800 mb-6 tracking-wide">
             {blockName}
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
             {blockTables.map((table) => {
               const statusConfig = getStatusConfig(table.status);
               const isAvailable =
                 table.orderId === null &&
                 (table.status === OrderStatus.AVAILABLE ||
                   table.status === OrderStatus.COMPLETED);
+
+              // Background colors based on status
+              const statusBg: any = {
+                [OrderStatus.AVAILABLE]:
+                  "from-green-50 to-green-100 border-green-200",
+                [OrderStatus.ORDERED]:
+                  "from-blue-50 to-blue-100 border-blue-200",
+                [OrderStatus.PREPARING]:
+                  "from-amber-50 to-amber-100 border-amber-200",
+                [OrderStatus.READY]:
+                  "from-purple-50 to-purple-100 border-purple-200",
+                [OrderStatus.SERVED]:
+                  "from-pink-50 to-pink-100 border-pink-200",
+                [OrderStatus.COMPLETED]:
+                  "from-gray-50 to-gray-100 border-gray-200",
+              };
+
               return (
                 <div
                   key={`${table.blockId}-${table.tableId}`}
@@ -261,24 +281,35 @@ const Dashboard = () => {
                       setSelectedTable(table.tableId);
                     }
                   }}
-                  className={`bg-white rounded-lg shadow-md p-4 flex flex-col justify-between cursor-pointer hover:shadow-lg transition-all duration-200 ${
-                    isAvailable ? "border-2 border-dashed border-gray-300" : ""
-                  }`}
+                  className={`rounded-2xl p-5 flex flex-col justify-between cursor-pointer 
+              transform transition-all duration-300 hover:scale-105 hover:shadow-2xl 
+              bg-gradient-to-br ${statusBg[table.status!]}`}
                 >
-                  <div className="flex justify-between items-start mb-3">
-                    <h3 className="text-lg font-bold text-gray-800">
+                  {/* Header */}
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold text-gray-800">
                       {table.tableName}
                     </h3>
+                    {!isAvailable && (
+                      <span
+                        className={`px-3 py-1 text-xs rounded-full font-medium ${
+                          statusBg[table.status!]
+                        }`}
+                      >
+                        {statusConfig.label}
+                      </span>
+                    )}
                   </div>
+
+                  {/* Available Card */}
                   {isAvailable ? (
-                    <div className="flex flex-col items-center justify-center my-4 py-4">
-                      <div className="flex items-center justify-center h-12 w-12 rounded-full bg-gray-100 mb-2">
+                    <div className="flex flex-col items-center justify-center my-6 py-6 rounded-xl bg-white shadow-inner border border-green-100">
+                      <div className="flex items-center justify-center h-14 w-14 rounded-full bg-green-100 mb-3">
                         <svg
-                          className="h-6 w-6 text-gray-400"
+                          className="h-7 w-7 text-green-600"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
-                          xmlns="http://www.w3.org/2000/svg"
                         >
                           <path
                             strokeLinecap="round"
@@ -288,14 +319,15 @@ const Dashboard = () => {
                           />
                         </svg>
                       </div>
-                      <p className="text-sm font-medium text-gray-500">
+                      <p className="text-lg font-semibold text-green-600">
                         Available
                       </p>
                     </div>
                   ) : (
                     <>
+                      {/* Status Card */}
                       <div
-                        className={`flex items-center justify-center my-4 p-3 rounded-lg ${statusConfig.bg}`}
+                        className={`flex items-center justify-center w-full max-w-xs mx-auto px-5 py-3 rounded-xl shadow ${statusConfig.bg}`}
                       >
                         <div className="text-center">
                           <p
@@ -304,44 +336,44 @@ const Dashboard = () => {
                             {statusConfig.label}
                           </p>
                           {table.orderId && (
-                            <p className="text-sm text-gray-500">
+                            <p className="text-sm text-gray-700">
                               Order #{table.orderId}
                             </p>
                           )}
                         </div>
                       </div>
-                      <div className="mb-3">
-                        <div className="w-full bg-gray-200 rounded-full h-1.5">
+
+                      {/* Progress Bar */}
+                      <div className="mt-4 w-full max-w-xs mx-auto">
+                        <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
                           <div
-                            className={`h-1.5 rounded-full ${
+                            className={`h-2 rounded-full transition-all duration-500 ease-in-out ${
                               table.status === OrderStatus.ORDERED
-                                ? "bg-blue-500 w-25%"
+                                ? "bg-blue-500 w-1/4"
                                 : table.status === OrderStatus.PREPARING
-                                ? "bg-amber-500 w-50%"
+                                ? "bg-amber-500 w-1/2"
                                 : table.status === OrderStatus.READY
-                                ? "bg-green-500 w-75%"
+                                ? "bg-green-500 w-3/4"
                                 : table.status === OrderStatus.SERVED
-                                ? "bg-purple-500 w-90%"
-                                : "bg-gray-500 w-100%"
+                                ? "bg-purple-500 w-[90%]"
+                                : "bg-gray-400 w-full"
                             }`}
                           />
                         </div>
                       </div>
                     </>
                   )}
-                  <div className="flex justify-between items-center text-sm text-gray-600">
+
+                  {/* Footer */}
+                  <div className="flex justify-between items-center mt-6 text-sm text-gray-600">
                     {isAvailable ? (
-                      <span className="text-gray-400">Ready for order</span>
+                      <span className="text-gray-400 italic">
+                        Ready for order
+                      </span>
                     ) : (
-                      <td className="p-1">
-                        <div className="flex items-center justify-center w-full h-full">
-                          {table.totalAmount && (
-                            <span className="font-semibold text-red-800">
-                              ${table.totalAmount}
-                            </span>
-                          )}
-                        </div>
-                      </td>
+                      <span className="font-semibold text-red-700 text-lg">
+                        ${table.totalAmount ?? "0.00"}
+                      </span>
                     )}
                   </div>
                 </div>
@@ -350,6 +382,7 @@ const Dashboard = () => {
           </div>
         </div>
       ))}
+
       {newOrder && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white w-[95%] h-[90%] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-gray-200">
@@ -465,6 +498,22 @@ const Dashboard = () => {
                         </select>
                       </div>
                     )}
+
+                    <div>
+                        <label className="block text-gray-700 font-medium mb-1">
+                          Status
+                        </label>
+                        <select
+                          value={orderStatus!}
+                          onChange={(e) => setOrderStatus(e.target.value! as "ORDERED")}
+                          className="w-full border border-gray-300 rounded-lg p-2 focus:ring-green-500 focus:border-green-500"
+                        >
+                          <option value="">Select Order Status</option>
+                          <option value={OrderStatus.ORDERED}>Ordered</option>
+                          <option value={OrderStatus.COMPLETED}>Completed</option>
+                          <option value={OrderStatus.CANCELLED}>Cancelled</option>
+                        </select>
+                      </div>
                   </div>
                   {/* Total & Button */}
                   <div className="mt-4 border-t pt-4">
@@ -530,10 +579,11 @@ const Dashboard = () => {
               </div>
               {/* Right Side (Order Summary) */}
               <div className="w-[30%] bg-gray-50 flex flex-col">
-                <div className="flex-1 p-4 flex flex-col">
+                <div className="flex-1 p-4 flex flex-col min-h-0">
                   <h2 className="text-lg font-bold mb-4">Order Summary</h2>
-                  {/* Order Items */}
-                  <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+
+                  {/* Order Items with scroll */}
+                  <div className="flex-1 min-h-0 overflow-y-auto space-y-3 pr-1">
                     {existingOrderData.items?.map((item: any) => (
                       <div
                         key={item.id}
@@ -551,9 +601,9 @@ const Dashboard = () => {
                       </div>
                     ))}
                   </div>
+
                   {/* Payment Info */}
                   <div className="mt-4 border-t pt-4 space-y-4">
-                    {/* Paid Checkbox */}
                     <div className="flex items-center space-x-2">
                       <input
                         type="checkbox"
@@ -571,7 +621,7 @@ const Dashboard = () => {
                         Paid
                       </label>
                     </div>
-                    {/* Payment Method Dropdown */}
+
                     <div>
                       <label className="text-sm font-medium block mb-1">
                         Payment Method
@@ -592,7 +642,30 @@ const Dashboard = () => {
                         <option value="UPI">UPI</option>
                       </select>
                     </div>
+                    <div>
+                      <label className="text-sm font-medium block mb-1">
+                        Order Status
+                      </label>
+                      <select
+                        value={existingOrderData.status || ""}
+                        onChange={(e) =>
+                          setExistingOrderData((prev: any) => ({
+                            ...prev,
+                            status: e.target.value as OrderStatus,
+                          }))
+                        }
+                        className="w-full border rounded-lg p-2 text-sm"
+                      >
+                        <option value="">Select Status</option>
+                        <option value={OrderStatus.ORDERED}>Ordered</option>
+                        <option value={OrderStatus.PREPARING}>Preparing</option>
+                        <option value={OrderStatus.READY}>Ready</option>
+                        <option value={OrderStatus.SERVED}>Served</option>
+                        <option value={OrderStatus.COMPLETED}>Completed</option>
+                      </select>
+                      </div>  
                   </div>
+
                   {/* Total */}
                   <div className="mt-4 border-t pt-4 flex justify-between items-center text-lg font-bold">
                     <span>Total:</span>
@@ -601,6 +674,7 @@ const Dashboard = () => {
                     </span>
                   </div>
                 </div>
+
                 {/* Footer Buttons */}
                 <div className="p-4 border-t flex justify-end space-x-3 bg-white">
                   <button

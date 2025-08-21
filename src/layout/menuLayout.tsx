@@ -11,8 +11,6 @@ import {
   FaShoppingCart,
   FaTags,
   FaMoneyBillWave,
-  FaClipboardCheck,
-  FaThList,
   FaUserShield,
   FaKey,
   FaChartBar,
@@ -20,9 +18,6 @@ import {
   FaChartPie,
   FaClipboardList,
   FaUserTie,
-  FaCalendarCheck,
-  FaMoneyCheckAlt,
-  FaUserFriends,
   FaFileInvoiceDollar,
 } from "react-icons/fa";
 import { Link, useLocation } from "react-router-dom";
@@ -64,12 +59,6 @@ const MenuLayout: React.FC<PropsWithChildren> = ({ children }) => {
           label: "Orders",
           to: "/orders",
           icon: <FaShoppingCart />,
-        },
-        {
-          key: "reservations",
-          label: "Reservations",
-          icon: <FaCalendarCheck />,
-          to: "/reservations",
         },
       ],
     },
@@ -137,29 +126,23 @@ const MenuLayout: React.FC<PropsWithChildren> = ({ children }) => {
       ],
     },
     {
-      key: "staff",
-      label: "Staff",
-      icon: <FaUserFriends />,
-      children: [
-        {
-          key: "staff-list",
-          label: "Staff List",
-          to: "/staff",
-          icon: <FaUser />,
-        },
-        {
-          key: "salary",
-          label: "Salary",
-          to: "/staff/salary",
-          icon: <FaMoneyCheckAlt />,
-        },
-      ],
-    },
-    {
       key: "Purchase-Order",
       label: "Purchase Orders",
       icon: <FaFileInvoiceDollar />,
-      to: "/purchase-orders",
+      children:[
+        {
+          key: "purchase-order-list",
+          label: "Orders List",
+          to: "/purchase-orders",
+          icon: <FaClipboardList />,
+        },
+        {
+          key: "purchase-order-items",
+          label: "Orders Items",
+          to: "/purchase-orders/items",
+          icon: <FaBoxes />,
+        },
+      ]
     },
     {
       key: "expense",
@@ -284,28 +267,21 @@ const MenuLayout: React.FC<PropsWithChildren> = ({ children }) => {
     <div className="flex font-roboto">
       {/* Sidebar */}
       <div
-        className={`bg-[#f5e8dd] shadow-lg h-screen p-4 flex flex-col transition-all duration-300 ease-in-out
-          w-[20%]`}
+        className={`fixed top-0 left-0 h-screen w-[20%] bg-[#f5e8dd] shadow-lg p-4 flex flex-col`}
       >
         <div className="flex items-center justify-between mb-6">
           {!collapsed && (
             <h2 className="text-lg font-bold text-[#F97316]">Restaurant POS</h2>
           )}
-          {/* <button
-            onClick={toggleCollapsed}
-            className="p-2 rounded-lg hover:bg-purple-50 transition-colors"
-          >
-            {collapsed ? <FaAngleDoubleRight /> : <FaAngleDoubleLeft />}
-          </button> */}
         </div>
 
-        <nav className="flex flex-col gap-1 flex-grow">
+        <nav className="flex flex-col gap-1 flex-grow overflow-y-auto">
           {mainMenuItems.map((item) => renderMenuItem(item))}
         </nav>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 p-6 bg-gray-50 min-h-screen w-[80%]">
+      <div className="ml-[20%] flex-1 p-6 bg-gray-50 min-h-screen">
         {children}
       </div>
     </div>

@@ -7,6 +7,9 @@ import { OrderType } from "../../constants/OrderTypes";
 import { FiPlus } from "react-icons/fi";
 import Loader from "../../components/Loader";
 import { HiEye } from "react-icons/hi";
+import moment from "moment";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 const gradientColors = [
   "from-pink-100 to-pink-200 text-pink-900",
   "from-purple-100 to-purple-200 text-purple-900",
@@ -21,6 +24,7 @@ const limit = 5;
 const getRandomGradient = () =>
   gradientColors[Math.floor(Math.random() * gradientColors.length)];
 const OrdersComponent: React.FC = () => {
+  const today = new Date();
   const [orders, setOrders] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
 
@@ -38,6 +42,10 @@ const OrdersComponent: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [page, setPage] = useState<number>(1);
   const totalPages = Math.ceil(totalCount / limit);
+  const [fromDate, setFromDate] = useState<Date | null>(today);
+  const [toDate, setToDate] = useState<Date | null>(today);
+  const [orderType, setOrderType] = useState<string | null>(null);
+  const [orderStatus, setOrderStatus] = useState<string | null>(null);
   const User = useSelector((state: any) => state.auth.user);
   const filteredItems = selectedCategory
     ? items.filter((i: any) => i.categoryId === selectedCategory)
@@ -84,13 +92,17 @@ const OrdersComponent: React.FC = () => {
     setIsLoading(true);
     try {
       const response: any = await postAxios("/orders/getallorders", {
+        orderId: searchOrderId || 0,
+        fromDate: fromDate ? moment(fromDate).format("YYYY-MM-DD") : null,
+        toDate: toDate ? moment(toDate).format("YYYY-MM-DD") : null,
+        orderType: orderType || null,
+        orderStatus: orderStatus || null,
         start: (page - 1) * limit,
         limit: limit,
       });
       const data = response.data[0];
       setOrders(data);
       setTotalCount(response.data[1][0].tot);
-
     } catch (error) {
       console.error("Error fetching orders:", error);
     } finally {
@@ -162,7 +174,7 @@ const OrdersComponent: React.FC = () => {
       })),
     };
     const res = await postAxios("/orders/createorder", orderData);
-    if(res){
+    if (res) {
       fetchOrders();
       setNewOrder(false);
     }
@@ -206,22 +218,65 @@ const OrdersComponent: React.FC = () => {
       </div>
 
       {/* Search Input */}
-      <div className="flex items-center gap-2 mb-4">
-        <div>
+      <div className="mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Order Id */}
           <input
             type="text"
-            placeholder="Search block"
-            className="border border-gray-300 rounded-md px-3 py-2 w-64"
+            placeholder="Search OrderId"
+            className="border border-gray-300 rounded-md px-3 py-2 w-full"
             value={searchOrderId!}
             onChange={(e) => setSearchOrderId(e.target.value)}
           />
+
+          {/* From Date */}
+          <DatePicker
+            selected={fromDate}
+            onChange={(date) => setFromDate(date)}
+            dateFormat="dd/MM/yyyy"
+            className="border border-gray-300 rounded-md px-3 py-2 w-full"
+            placeholderText="From Date"
+          />
+
+          {/* To Date */}
+          <DatePicker
+            selected={toDate}
+            onChange={(date) => setToDate(date)}
+            dateFormat="dd/MM/yyyy"
+            className="border border-gray-300 rounded-md px-3 py-2 w-full"
+            placeholderText="To Date"
+          />
+
+          {/* Order Type */}
+          <select
+            className="border border-gray-300 rounded-md px-3 py-2 w-full"
+            value={orderType!}
+            onChange={(e) => setOrderType(e.target.value)}
+          >
+            <option value="">Select Order Type</option>
+            <option value="TAKEAWAY">Takeaway</option>
+            <option value="DINEIN">Dining</option>
+          </select>
+
+          {/* Order Status */}
+          <select
+            className="border border-gray-300 rounded-md px-3 py-2 w-full"
+            value={orderStatus!}
+            onChange={(e) => setOrderStatus(e.target.value)}
+          >
+            <option value="">Select Order Status</option>
+            <option value="ORDERED">Ordered</option>
+            <option value="COMPLETED">Completed</option>
+          </select>
+
+          {/* Search Button */}
+          <button
+            onClick={handleSearch}
+            className="px-4 py-2 rounded-md bg-orange-700 text-white flex items-center justify-center gap-2 hover:bg-orange-600 w-full"
+          >
+            Search
+          </button>
         </div>
-        <button
-          onClick={handleSearch}
-          className="px-4 py-2 rounded-md bg-orange-700 text-white flex items-center gap-2 hover:bg-orange-600 cursor-pointer"
-        >
-          Search
-        </button>
       </div>
 
       {/* TABLE */}
@@ -236,6 +291,12 @@ const OrdersComponent: React.FC = () => {
                   <tr className="bg-gray-100">
                     <th className="p-5 text-left text-sm font-semibold text-gray-900">
                       Id
+                    </th>
+                    <th className="p-5 text-left text-sm font-semibold text-gray-900">
+                      Date
+                    </th>
+                    <th className="p-5 text-left text-sm font-semibold text-gray-900">
+                      Time
                     </th>
                     <th className="p-5 text-left text-sm font-semibold text-gray-900">
                       Total Amount
@@ -263,6 +324,14 @@ const OrdersComponent: React.FC = () => {
                       {/* Id */}
                       <td className="p-5 text-sm font-medium text-gray-900">
                         {order.id}
+                      </td>
+                      {/* Date */}
+                      <td className="p-5 text-sm font-medium text-gray-900">
+                        {moment(order.date).format("DD/MM/YYYY")}
+                      </td>
+                      {/* Time */}
+                      <td className="p-5 text-sm font-medium text-gray-900">
+                        {moment(order.time, "HH:mm:ss").format("hh:mm A")}
                       </td>
 
                       {/* Total */}
@@ -528,7 +597,7 @@ const OrdersComponent: React.FC = () => {
               </div>
               {/* Right Side (Order Summary) */}
               <div className="w-[30%] bg-gray-50 flex flex-col">
-                <div className="flex-1 p-4 flex flex-col">
+                <div className="flex-1 p-4 flex flex-col min-h-0">
                   <h2 className="text-lg font-bold mb-4">Order Summary</h2>
                   {/* Order Items */}
                   <div className="flex-1 overflow-y-auto space-y-3 pr-1">
@@ -609,7 +678,6 @@ const OrdersComponent: React.FC = () => {
                   </button>
                   <button
                     onClick={handleUpdateOrder}
-                    
                     className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-blue-700 cursor-pointer"
                   >
                     Update
