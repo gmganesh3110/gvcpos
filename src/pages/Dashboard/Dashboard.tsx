@@ -4,7 +4,7 @@ import { OrderType } from "../../constants/OrderTypes";
 import { postAxios } from "../../services/AxiosService";
 import Loader from "../../components/Loader";
 import { useSelector } from "react-redux";
-
+import { PaymentMode } from "../../constants/Paymodes";
 interface TableData {
   blockId: number;
   blockName: string;
@@ -17,7 +17,6 @@ interface TableData {
   guests?: number;
   elapsedTime?: string;
 }
-
 const gradientColors = [
   "from-pink-100 to-pink-200 text-pink-900",
   "from-purple-100 to-purple-200 text-purple-900",
@@ -30,7 +29,6 @@ const gradientColors = [
 ];
 const getRandomGradient = () =>
   gradientColors[Math.floor(Math.random() * gradientColors.length)];
-
 const Dashboard = () => {
   const [tables, setTables] = useState<TableData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,17 +40,20 @@ const Dashboard = () => {
   const [total, setTotal] = useState(0);
   const [selectedTable, setSelectedTable] = useState<number | null>(null);
   const [selectedBlock, setSelectedBlock] = useState<number | null>(null);
-
+  const [existingOrder, setExistingOrder] = useState(false);
+  const [existingOrderData, setExistingOrderData] = useState<any>(null);
+  const [isPaid, setIsPaid] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<string | null>(null);
   const User = useSelector((state: any) => state.auth.user);
   const filteredItems = selectedCategory
     ? items.filter((i) => i.categoryId === selectedCategory)
     : items;
-
   useEffect(() => {
     fetchTables();
   }, []);
   const fetchTables = async () => {
     try {
+      setLoading(true);
       const response: any = await postAxios(
         "/orders/getblocksandtableswithorders"
       );
@@ -60,7 +61,7 @@ const Dashboard = () => {
       // Transform the data to include mock values for demo
       const transformedTables = data[0].map((table: TableData) => ({
         ...table,
-        totalAmount: table.orderId ? Math.floor(Math.random() * 100) + 20 : 0,
+        totalAmount: table.totalAmount,
         guests: table.orderId ? Math.floor(Math.random() * 6) + 1 : 0,
         elapsedTime: table.orderId
           ? `${Math.floor(Math.random() * 30)}:${Math.floor(Math.random() * 60)
@@ -68,6 +69,7 @@ const Dashboard = () => {
               .padStart(2, "0")}`
           : null,
       }));
+      setLoading(false);
       setTables(transformedTables);
     } catch (error) {
       console.error("Error fetching tables:", error);
@@ -107,7 +109,6 @@ const Dashboard = () => {
   useEffect(() => {
     fetchFilteredItems();
   }, [selectedCategory, newOrder]);
-
   const handleAddItem = (item: any) => {
     setOrder((prev) => {
       const existing = prev.find((p) => p.id === item.id);
@@ -119,13 +120,11 @@ const Dashboard = () => {
       return [...prev, { ...item, qty: 1 }];
     });
   };
-
   const handleIncrease = (id: number) => {
     setOrder((prev) =>
       prev.map((p) => (p.id === id ? { ...p, qty: p.qty + 1 } : p))
     );
   };
-
   const handleDecrease = (id: number) => {
     setOrder((prev) =>
       prev
@@ -133,7 +132,6 @@ const Dashboard = () => {
         .filter((p) => p.qty > 0)
     );
   };
-
   const getStatusConfig = (status: OrderStatus | null) => {
     switch (status) {
       case OrderStatus.ORDERED:
@@ -158,26 +156,21 @@ const Dashboard = () => {
         };
     }
   };
-
   const onCardClick = (id: number) => {
     setSelectedCategory(id);
   };
-
   useEffect(() => {
     setTotal(order.reduce((sum, item) => sum + item.price * item.qty, 0));
   }, [order]);
-
   const handlePlaceOrder = async () => {
-    console.log(order);
-    console.log(selectedBlock);
-    console.log(selectedTable);
-    console.log(total);
     let orderData = {
       blockId: selectedBlock,
       tableId: selectedTable,
       totalAmount: total,
       status: OrderStatus.ORDERED,
-      type: OrderType.DINE_IN,
+      type: OrderType.DINEIN,
+      isPaid: isPaid,
+      paymentMethod: paymentMethod,
       createdBy: User.id,
       items: order.map((item) => ({
         id: item.id,
@@ -186,12 +179,32 @@ const Dashboard = () => {
       })),
     };
     const res = await postAxios("/orders/createorder", orderData);
-    console.log(res);
     if (res) {
       fetchTables();
+      setNewOrder(false);
     }
   };
-
+  const handleGetOrderDetails = async (orderId: number) => {
+    const res: any = await postAxios("/orders/getorderdetails", { orderId });
+    const rawItems = res.data[0]; // array of items
+    if (rawItems.length > 0) {
+      const orderSummary = {
+        orderId: rawItems[0].orderid,
+        total: Number(rawItems[0].totalAmount),
+        type: rawItems[0].type,
+        isPaid: rawItems[0].isPaid === 1,
+        paymentMethod: rawItems[0].paymentMode,
+        items: rawItems.map((row: any) => ({
+          id: row.itemid,
+          name: row.name,
+          price: Number(row.price),
+          qty: row.quantity,
+        })),
+      };
+      setExistingOrder(true);
+      setExistingOrderData(orderSummary);
+    }
+  };
   const groupedTables = tables.reduce((acc, table) => {
     if (!acc[table.blockName]) {
       acc[table.blockName] = [];
@@ -199,17 +212,31 @@ const Dashboard = () => {
     acc[table.blockName].push(table);
     return acc;
   }, {} as Record<string, TableData[]>);
-
   if (loading) {
     return <Loader />;
   }
+
+  const handleUpdateOrder = async () => {
+    try {
+      await postAxios("/orders/updateorder", {
+        orderId: existingOrderData.orderId,
+        isPaid: existingOrderData.isPaid,
+        paymentMode: existingOrderData.paymentMethod,
+        modifiedBy: User.id,
+        status: OrderStatus.COMPLETED,
+      });
+      setExistingOrder(false);
+      fetchTables();
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   return (
     <div className="container mx-auto px-4 py-8 overflow-auto">
       <div className="flex items-center justify-between mb-8">
         <h2 className="text-3xl font-bold text-gray-800">Order Management</h2>
       </div>
-
       {Object.entries(groupedTables).map(([blockName, blockTables]) => (
         <div key={blockName} className="mb-8">
           <h3 className="text-xl font-semibold text-gray-700 mb-4">
@@ -220,15 +247,19 @@ const Dashboard = () => {
               const statusConfig = getStatusConfig(table.status);
               const isAvailable =
                 table.orderId === null &&
-                table.status === OrderStatus.AVAILABLE;
-
+                (table.status === OrderStatus.AVAILABLE ||
+                  table.status === OrderStatus.COMPLETED);
               return (
                 <div
                   key={`${table.blockId}-${table.tableId}`}
                   onClick={() => {
-                    setNewOrder(true);
-                    setSelectedBlock(table.blockId);
-                    setSelectedTable(table.tableId);
+                    if (table.orderId) {
+                      handleGetOrderDetails(table.orderId);
+                    } else {
+                      setNewOrder(true);
+                      setSelectedBlock(table.blockId);
+                      setSelectedTable(table.tableId);
+                    }
                   }}
                   className={`bg-white rounded-lg shadow-md p-4 flex flex-col justify-between cursor-pointer hover:shadow-lg transition-all duration-200 ${
                     isAvailable ? "border-2 border-dashed border-gray-300" : ""
@@ -238,25 +269,7 @@ const Dashboard = () => {
                     <h3 className="text-lg font-bold text-gray-800">
                       {table.tableName}
                     </h3>
-                    {table.elapsedTime && (
-                      <span className="text-sm font-medium text-gray-500 flex items-center gap-1">
-                        <svg
-                          className="h-4 w-4"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            clipRule="evenodd"
-                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
-                          />
-                        </svg>
-                        {table.elapsedTime}
-                      </span>
-                    )}
                   </div>
-
                   {isAvailable ? (
                     <div className="flex flex-col items-center justify-center my-4 py-4">
                       <div className="flex items-center justify-center h-12 w-12 rounded-full bg-gray-100 mb-2">
@@ -316,30 +329,19 @@ const Dashboard = () => {
                       </div>
                     </>
                   )}
-
                   <div className="flex justify-between items-center text-sm text-gray-600">
                     {isAvailable ? (
                       <span className="text-gray-400">Ready for order</span>
                     ) : (
-                      <>
-                        <span className="flex items-center gap-1.5">
-                          <svg
-                            className="h-4 w-4"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                            xmlns="http://www.w3.org/2000/svg"
-                          >
-                            <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0110 13v-2.26A4.97 4.97 0 0112.93 7h0a4.97 4.97 0 012.93 3.74A6.97 6.97 0 0017 16c0 .34.024.673.07 1h-4.14zM2.07 17a6.97 6.97 0 001.5-4.33A5 5 0 015 13v-2.26A4.97 4.97 0 012.07 7h0a4.97 4.97 0 01-2.93 3.74A6.97 6.97 0 00-1 16c0 .34-.024.673-.07 1h4.14z" />
-                          </svg>
-                          {table.guests}{" "}
-                          {table.guests === 1 ? "Guest" : "Guests"}
-                        </span>
-                        {table.totalAmount && (
-                          <span className="font-semibold text-gray-800">
-                            ${table.totalAmount.toFixed(2)}
-                          </span>
-                        )}
-                      </>
+                      <td className="p-1">
+                        <div className="flex items-center justify-center w-full h-full">
+                          {table.totalAmount && (
+                            <span className="font-semibold text-red-800">
+                              ${table.totalAmount}
+                            </span>
+                          )}
+                        </div>
+                      </td>
                     )}
                   </div>
                 </div>
@@ -361,7 +363,6 @@ const Dashboard = () => {
                 ✕
               </button>
             </div>
-
             {/* Content */}
             <div className="flex flex-1 overflow-hidden">
               {/* Left Side */}
@@ -380,9 +381,6 @@ const Dashboard = () => {
                     </div>
                   ))}
                 </div>
-                <div className="">
-                  <br />
-                </div>
                 {/* Items */}
                 <div className="h-[60%] p-4 grid grid-cols-4 gap-4 overflow-y-auto">
                   {filteredItems.map((item) => (
@@ -397,11 +395,11 @@ const Dashboard = () => {
                   ))}
                 </div>
               </div>
-
               {/* Right Side */}
               <div className="w-[30%] bg-gray-50">
                 <div className="h-full p-4 flex flex-col">
                   <h2 className="text-lg font-bold mb-4">Order Summary</h2>
+                  {/* Order Items */}
                   <div className="flex-1 overflow-y-auto space-y-3 pr-1">
                     {order.map((item) => (
                       <div
@@ -430,7 +428,44 @@ const Dashboard = () => {
                       </div>
                     ))}
                   </div>
-
+                  {/* Payment Options */}
+                  <div className="mt-4 border-t pt-4 space-y-4">
+                    {/* Is Paid Checkbox */}
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="isPaid"
+                        checked={isPaid}
+                        onChange={(e) => setIsPaid(e.target.checked)}
+                        className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                      />
+                      <label
+                        htmlFor="isPaid"
+                        className="text-gray-700 font-medium"
+                      >
+                        Is Paid?
+                      </label>
+                    </div>
+                    {/* Payment Method Dropdown */}
+                    {isPaid && (
+                      <div>
+                        <label className="block text-gray-700 font-medium mb-1">
+                          Payment Method
+                        </label>
+                        <select
+                          value={paymentMethod!}
+                          onChange={(e) => setPaymentMethod(e.target.value)}
+                          className="w-full border border-gray-300 rounded-lg p-2 focus:ring-green-500 focus:border-green-500"
+                        >
+                          <option value="">Select Payment Method</option>
+                          <option value={PaymentMode.ONLINE}>Online</option>
+                          <option value={PaymentMode.CASH}>Cash</option>
+                          <option value={PaymentMode.CARD}>Card</option>
+                          <option value={PaymentMode.UPI}>UPI</option>
+                        </select>
+                      </div>
+                    )}
+                  </div>
                   {/* Total & Button */}
                   <div className="mt-4 border-t pt-4">
                     <div className="flex justify-between items-center mb-4 text-lg font-bold">
@@ -450,8 +485,143 @@ const Dashboard = () => {
           </div>
         </div>
       )}
+      {existingOrder && existingOrderData && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white w-[95%] h-[90%] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-gray-200">
+            {/* Header */}
+            <div className="flex justify-between items-center p-5 border-b bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+              <h1 className="text-2xl font-bold">📦 Order Details</h1>
+              <button
+                onClick={() => setExistingOrder(false)}
+                className="text-white hover:text-gray-200 text-xl"
+              >
+                ✕
+              </button>
+            </div>
+            {/* Content */}
+            <div className="flex flex-1 overflow-hidden">
+              {/* Left Side (Categories + Items) */}
+              <div className="w-[70%] flex flex-col border-r">
+                {/* Categories */}
+                <div className="h-[40%] p-4 grid grid-cols-4 gap-4 overflow-y-auto">
+                  {categories?.map((cat: any) => (
+                    <div
+                      key={cat.id}
+                      className={`p-4 rounded-xl shadow bg-gradient-to-br ${getRandomGradient()} cursor-not-allowed opacity-70`}
+                    >
+                      <p className="font-semibold text-center">
+                        {cat.category}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                {/* Items */}
+                <div className="h-[60%] p-4 grid grid-cols-4 gap-4 overflow-y-auto">
+                  {existingOrderData.items?.map((item: any) => (
+                    <div
+                      key={item.id}
+                      className={`p-4 rounded-xl shadow bg-gradient-to-br ${getRandomGradient()} cursor-not-allowed opacity-70`}
+                    >
+                      <p className="font-medium">{item.name}</p>
+                      <p className="text-sm mt-1">₹{item.price}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* Right Side (Order Summary) */}
+              <div className="w-[30%] bg-gray-50 flex flex-col">
+                <div className="flex-1 p-4 flex flex-col">
+                  <h2 className="text-lg font-bold mb-4">Order Summary</h2>
+                  {/* Order Items */}
+                  <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+                    {existingOrderData.items?.map((item: any) => (
+                      <div
+                        key={item.id}
+                        className="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm border border-gray-100"
+                      >
+                        <div>
+                          <p className="font-medium">{item.name}</p>
+                          <p className="text-sm text-gray-500">
+                            ₹{item.price} × {item.qty}
+                          </p>
+                        </div>
+                        <div className="font-semibold text-gray-800">
+                          ₹{item.price * item.qty}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Payment Info */}
+                  <div className="mt-4 border-t pt-4 space-y-4">
+                    {/* Paid Checkbox */}
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="isPaid"
+                        checked={existingOrderData.isPaid}
+                        onChange={(e) =>
+                          setExistingOrderData((prev: any) => ({
+                            ...prev,
+                            isPaid: e.target.checked,
+                          }))
+                        }
+                        className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                      />
+                      <label htmlFor="isPaid" className="text-sm font-medium">
+                        Paid
+                      </label>
+                    </div>
+                    {/* Payment Method Dropdown */}
+                    <div>
+                      <label className="text-sm font-medium block mb-1">
+                        Payment Method
+                      </label>
+                      <select
+                        value={existingOrderData.paymentMethod || ""}
+                        onChange={(e) =>
+                          setExistingOrderData((prev: any) => ({
+                            ...prev,
+                            paymentMethod: e.target.value,
+                          }))
+                        }
+                        className="w-full border rounded-lg p-2 text-sm"
+                      >
+                        <option value="">Select Method</option>
+                        <option value="CASH">Cash</option>
+                        <option value="CARD">Card</option>
+                        <option value="UPI">UPI</option>
+                      </select>
+                    </div>
+                  </div>
+                  {/* Total */}
+                  <div className="mt-4 border-t pt-4 flex justify-between items-center text-lg font-bold">
+                    <span>Total:</span>
+                    <span className="text-blue-600">
+                      ₹{existingOrderData.total}
+                    </span>
+                  </div>
+                </div>
+                {/* Footer Buttons */}
+                <div className="p-4 border-t flex justify-end space-x-3 bg-white">
+                  <button
+                    onClick={() => setExistingOrder(false)}
+                    className="px-4 py-2 rounded-lg border text-gray-600 hover:bg-gray-100"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleUpdateOrder}
+                    className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 cursor-pointer"
+                  >
+                    Update
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
-
 export default Dashboard;

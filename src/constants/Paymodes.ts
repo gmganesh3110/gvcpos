@@ -1,4 +1,6 @@
-export type PaymentMode = {
-  ONLINE: "ONLINE";
-  CASH: "CASH";
+export const PaymentMode = {
+  ONLINE: "ONLINE",
+  CASH: "CASH",
+  CARD: "CARD",
+  UPI: "UPI",
 };

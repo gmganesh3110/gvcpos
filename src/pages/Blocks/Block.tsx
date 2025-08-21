@@ -65,7 +65,6 @@ const BlockPage: React.FC = () => {
       setEditForm(true);
       setIsLoading(true);
       const res: any = await postAxios("/blocks/getone", { id });
-      debugger;
       setEditBlockName(res.data[0][0].blockName);
       setEditDescription(res.data[0][0].description);
       setEditStatus(res.data[0][0].activeStatus);

@@ -1,431 +1,627 @@
+import React, { useEffect, useState } from "react";
+import { postAxios } from "../../services/AxiosService";
+import { useSelector } from "react-redux";
+import { PaymentMode } from "../../constants/Paymodes";
+import { OrderStatus } from "../../constants/OrderStatus";
+import { OrderType } from "../../constants/OrderTypes";
+import { FiPlus } from "react-icons/fi";
+import Loader from "../../components/Loader";
+import { HiEye } from "react-icons/hi";
+const gradientColors = [
+  "from-pink-100 to-pink-200 text-pink-900",
+  "from-purple-100 to-purple-200 text-purple-900",
+  "from-green-100 to-green-200 text-green-900",
+  "from-yellow-100 to-yellow-200 text-yellow-900",
+  "from-blue-100 to-blue-200 text-blue-900",
+  "from-indigo-100 to-indigo-200 text-indigo-900",
+  "from-red-100 to-red-200 text-red-900",
+  "from-teal-100 to-teal-200 text-teal-900",
+];
+const limit = 5;
+const getRandomGradient = () =>
+  gradientColors[Math.floor(Math.random() * gradientColors.length)];
+const OrdersComponent: React.FC = () => {
+  const [orders, setOrders] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
 
+  const [newOrder, setNewOrder] = useState(false);
+  const [existingOrder, setExistingOrder] = useState(false);
+  const [existingOrderData, setExistingOrderData] = useState<any>(null);
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+  const [order, setOrder] = useState<any[]>([]);
+  const [items, setItems] = useState<any[]>([]);
+  const [isPaid, setIsPaid] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<string | null>(null);
+  const [total, setTotal] = useState(0);
+  const [searchOrderId, setSearchOrderId] = useState<string | null>(null);
+  const [totalCount, setTotalCount] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [page, setPage] = useState<number>(1);
+  const totalPages = Math.ceil(totalCount / limit);
+  const User = useSelector((state: any) => state.auth.user);
+  const filteredItems = selectedCategory
+    ? items.filter((i: any) => i.categoryId === selectedCategory)
+    : items;
 
-const Orders = () => {
+  useEffect(() => {
+    setTotal(order.reduce((sum, item) => sum + item.price * item.qty, 0));
+  }, [order]);
+  const fetchCategories = async () => {
+    try {
+      const response: any = await postAxios("/categories/getall", {
+        categoryId: selectedCategory,
+        start: 0,
+        limit: 50,
+      });
+      const data = response.data[0];
+      setCategories(data);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+    }
+  };
+  useEffect(() => {
+    fetchCategories();
+  }, [newOrder]);
+
+  const fetchFilteredItems = async () => {
+    try {
+      const response: any = await postAxios("/items/getall", {
+        categoryId: selectedCategory,
+        start: 0,
+        limit: 50,
+      });
+      const data: any = response.data[0];
+      setItems(data);
+    } catch (error) {
+      console.error("Error fetching filtered items:", error);
+    }
+  };
+  useEffect(() => {
+    fetchFilteredItems();
+  }, [selectedCategory, newOrder]);
+
+  const fetchOrders = async () => {
+    setIsLoading(true);
+    try {
+      const response: any = await postAxios("/orders/getallorders", {
+        start: (page - 1) * limit,
+        limit: limit,
+      });
+      const data = response.data[0];
+      setOrders(data);
+      setTotalCount(response.data[1][0].tot);
+
+    } catch (error) {
+      console.error("Error fetching orders:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrders();
+  }, [page, searchOrderId]);
+
+  const handleUpdateOrder = async () => {
+    try {
+      await postAxios("/orders/updateorder", {
+        orderId: existingOrderData.orderId,
+        isPaid: existingOrderData.isPaid,
+        paymentMode: existingOrderData.paymentMethod,
+        modifiedBy: User.id,
+        status: OrderStatus.COMPLETED,
+      });
+      setExistingOrder(false);
+      fetchOrders();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const onCardClick = (id: number) => {
+    setSelectedCategory(id);
+  };
+
+  const handleAddItem = (item: any) => {
+    setOrder((prev) => {
+      const existing = prev.find((p) => p.id === item.id);
+      if (existing) {
+        return prev.map((p) =>
+          p.id === item.id ? { ...p, qty: p.qty + 1 } : p
+        );
+      }
+      return [...prev, { ...item, qty: 1 }];
+    });
+  };
+
+  const handleIncrease = (id: number) => {
+    setOrder((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, qty: p.qty + 1 } : p))
+    );
+  };
+  const handleDecrease = (id: number) => {
+    setOrder((prev) =>
+      prev
+        .map((p) => (p.id === id ? { ...p, qty: p.qty - 1 } : p))
+        .filter((p) => p.qty > 0)
+    );
+  };
+
+  const handlePlaceOrder = async () => {
+    let orderData = {
+      totalAmount: total,
+      status: OrderStatus.ORDERED,
+      type: OrderType.TAKEAWAY,
+      isPaid: isPaid,
+      paymentMethod: paymentMethod,
+      createdBy: User.id,
+      items: order.map((item) => ({
+        id: item.id,
+        quantity: item.qty,
+        price: item.price,
+      })),
+    };
+    const res = await postAxios("/orders/createorder", orderData);
+    if(res){
+      fetchOrders();
+      setNewOrder(false);
+    }
+  };
+
+  const handleSearch = () => {
+    fetchOrders();
+  };
+
+  const handleGetOrderDetails = async (orderId: number) => {
+    const res: any = await postAxios("/orders/getorderdetails", { orderId });
+    const rawItems = res.data[0]; // array of items
+    if (rawItems.length > 0) {
+      const orderSummary = {
+        orderId: rawItems[0].orderid,
+        total: Number(rawItems[0].totalAmount),
+        type: rawItems[0].type,
+        isPaid: rawItems[0].isPaid === 1,
+        paymentMethod: rawItems[0].paymentMode,
+        items: rawItems.map((row: any) => ({
+          id: row.itemid,
+          name: row.name,
+          price: Number(row.price),
+          qty: row.quantity,
+        })),
+      };
+      setExistingOrder(true);
+      setExistingOrderData(orderSummary);
+    }
+  };
   return (
-    <div>
-      <main className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-8">
-          <h2 className="typography_h1">Order Management</h2>
-          <button className="button_primary flex items-center">
-            <svg
-              className="h-5 w-5 mr-2"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-              ></path>
-            </svg>
-            New Order
+    <div className="p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-bold">Orders</h2>
+        <button
+          onClick={() => setNewOrder(true)}
+          className="px-4 py-2 rounded-md bg-orange-700 text-white flex items-center gap-2 hover:bg-orange-600 cursor-pointer"
+        >
+          <FiPlus /> New Order
+        </button>
+      </div>
+
+      {/* Search Input */}
+      <div className="flex items-center gap-2 mb-4">
+        <div>
+          <input
+            type="text"
+            placeholder="Search block"
+            className="border border-gray-300 rounded-md px-3 py-2 w-64"
+            value={searchOrderId!}
+            onChange={(e) => setSearchOrderId(e.target.value)}
+          />
+        </div>
+        <button
+          onClick={handleSearch}
+          className="px-4 py-2 rounded-md bg-orange-700 text-white flex items-center gap-2 hover:bg-orange-600 cursor-pointer"
+        >
+          Search
+        </button>
+      </div>
+
+      {/* TABLE */}
+      {isLoading ? (
+        <Loader />
+      ) : (
+        <div className="overflow-x-auto pb-4 px-6">
+          <div className="min-w-full inline-block align-middle">
+            <div className="overflow-hidden border rounded-lg border-gray-300">
+              <table className="table-auto min-w-full rounded-xl">
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="p-5 text-left text-sm font-semibold text-gray-900">
+                      Id
+                    </th>
+                    <th className="p-5 text-left text-sm font-semibold text-gray-900">
+                      Total Amount
+                    </th>
+                    <th className="p-5 text-left text-sm font-semibold text-gray-900">
+                      Type
+                    </th>
+                    <th className="p-5 text-left text-sm font-semibold text-gray-900">
+                      Paid
+                    </th>
+                    <th className="p-5 text-left text-sm font-semibold text-gray-900">
+                      Status
+                    </th>
+                    <th className="p-5 text-left text-sm font-semibold text-gray-900">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-300">
+                  {orders.map((order: any) => (
+                    <tr
+                      key={order.id}
+                      className="transition-all duration-500 hover:bg-gray-50"
+                    >
+                      {/* Id */}
+                      <td className="p-5 text-sm font-medium text-gray-900">
+                        {order.id}
+                      </td>
+
+                      {/* Total */}
+                      <td className="p-5 text-sm font-medium text-gray-900">
+                        {order.totalAmount}
+                      </td>
+
+                      {/* Type */}
+                      <td className="p-5 text-sm font-medium text-gray-900">
+                        {order.type}
+                      </td>
+
+                      {/* Paid */}
+                      <td className="p-5 text-sm font-medium text-gray-900">
+                        {order.isPaid ? "Paid" : "Not Paid"}
+                      </td>
+
+                      {/* Status */}
+                      <td className="p-5 text-sm font-medium text-gray-900">
+                        {order.status}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="flex p-5 gap-2">
+                        <button
+                          onClick={() => handleGetOrderDetails(order.id)}
+                          className="p-2 rounded-full bg-white transition-all duration-200 hover:bg-orange-500 cursor-pointer"
+                        >
+                          <HiEye className="w-5 h-5 text-indigo-500 hover:text-white" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PAGINATION */}
+      <div className="flex justify-between items-center mt-4 px-6">
+        <div className="text-sm text-gray-700">
+          Showing {(page - 1) * limit + 1} to{" "}
+          {Math.min(page * limit, totalCount)} of {totalCount} results
+        </div>
+        <nav className="inline-flex shadow-sm" aria-label="Pagination">
+          <button
+            disabled={page === 1}
+            onClick={() => setPage((prev) => prev - 1)}
+            className={`px-3 py-2 border text-sm font-medium cursor-pointer rounded-l-md ${
+              page === 1
+                ? "bg-gray-200 text-gray-500"
+                : "bg-white hover:bg-gray-50"
+            }`}
+          >
+            Previous
           </button>
-        </div>
-        <div className="mb-8 flex items-center justify-between gap-4">
-          <div className="relative flex-grow">
-            <span className="absolute inset-y-0 left-0 flex items-center pl-3">
-              <svg
-                className="h-5 w-5 text-text-secondary"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-                xmlns="http://www.w3.org/2000/svg"
+          {Array.from({ length: totalPages }).map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setPage(i + 1)}
+              className={`px-3 py-2 border-t border-b text-sm cursor-pointer font-medium ${
+                page === i + 1
+                  ? "bg-orange-500 text-white"
+                  : "bg-white hover:bg-gray-50"
+              }`}
+            >
+              {i + 1}
+            </button>
+          ))}
+          <button
+            disabled={page === totalPages}
+            onClick={() => setPage((prev) => prev + 1)}
+            className={`px-3 py-2 border text-sm font-medium cursor-pointer rounded-r-md ${
+              page === totalPages
+                ? "bg-gray-200 text-gray-500"
+                : "bg-white hover:bg-gray-50"
+            }`}
+          >
+            Next
+          </button>
+        </nav>
+      </div>
+
+      {newOrder && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white w-[95%] h-[90%] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-gray-200">
+            {/* Header */}
+            <div className="flex justify-between items-center p-5 border-b bg-gradient-to-r from-green-500 to-green-600 text-white">
+              <h1 className="text-2xl font-bold">🛒 New Order</h1>
+              <button
+                onClick={() => setNewOrder(false)}
+                className="text-white hover:text-gray-200 text-xl"
               >
-                <path
-                  clip-rule="evenodd"
-                  d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
-                  fill-rule="evenodd"
-                ></path>
-              </svg>
-            </span>
-            <input
-              className="input pl-10"
-              placeholder="Search by table, order number, or status"
-              type="text"
-            />
-          </div>
-          <div className="flex space-x-1 bg-gray-200 p-1 rounded-lg">
-            <a
-              className="bg-white text-primary-color shadow-sm whitespace-nowrap py-2 px-4 rounded-md font-medium text-sm"
-              href="#"
-            >
-              All Orders
-            </a>
-            <a
-              className="text-text-secondary hover:bg-white/60 hover:text-text-primary whitespace-nowrap py-2 px-4 rounded-md font-medium text-sm"
-              href="#"
-            >
-              New
-            </a>
-            <a
-              className="text-text-secondary hover:bg-white/60 hover:text-text-primary whitespace-nowrap py-2 px-4 rounded-md font-medium text-sm"
-              href="#"
-            >
-              Cooking
-            </a>
-            <a
-              className="text-text-secondary hover:bg-white/60 hover:text-text-primary whitespace-nowrap py-2 px-4 rounded-md font-medium text-sm"
-              href="#"
-            >
-              Ready
-            </a>
-            <a
-              className="text-text-secondary hover:bg-white/60 hover:text-text-primary whitespace-nowrap py-2 px-4 rounded-md font-medium text-sm"
-              href="#"
-            >
-              Served
-            </a>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-          <div className="bg-white rounded-xl shadow-md p-4 flex flex-col justify-between cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-            <div className="flex justify-between items-start mb-3">
-              <h3 className="text-lg font-bold text-gray-800">Table 1</h3>
-              <span className="text-sm font-medium text-gray-500 flex items-center gap-1">
-                <svg
-                  className="h-4 w-4"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    clip-rule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
-                    fill-rule="evenodd"
-                  ></path>
-                </svg>
-                00:15:32
-              </span>
+                ✕
+              </button>
             </div>
-            <div className="flex items-center justify-center my-4 p-4 rounded-lg bg-teal-50 status-update">
-              <div className="text-center">
-                <p className="text-lg font-bold text-teal-700">Eating</p>
-                <p className="text-sm text-teal-600">Order #12345</p>
+            {/* Content */}
+            <div className="flex flex-1 overflow-hidden">
+              {/* Left Side */}
+              <div className="w-[70%] flex flex-col border-r">
+                {/* Categories */}
+                <div className="h-[40%] p-4 grid grid-cols-4 gap-4 overflow-y-auto">
+                  {categories.map((cat: any) => (
+                    <div
+                      key={cat.id}
+                      className={`p-4 rounded-xl shadow bg-gradient-to-br ${getRandomGradient()} cursor-pointer hover:scale-105 transition transform hover:shadow-lg`}
+                      onClick={() => onCardClick(cat.id)}
+                    >
+                      <p className="font-semibold text-center">
+                        {cat.category}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                {/* Items */}
+                <div className="h-[60%] p-4 grid grid-cols-4 gap-4 overflow-y-auto">
+                  {filteredItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className={`p-4 rounded-xl shadow bg-gradient-to-br ${getRandomGradient()} cursor-pointer hover:scale-105 transition transform hover:shadow-md`}
+                      onClick={() => handleAddItem(item)}
+                    >
+                      <p className="font-medium">{item.name}</p>
+                      <p className="text-sm mt-1">₹{item.price}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-            <div className="mb-3">
-              <div className="w-full bg-gray-200 rounded-full h-1.5 dark:bg-gray-700">
-                <div
-                  className="bg-teal-500 h-1.5 rounded-full"
-                  style={{width: "80%"}}
-                ></div>
+              {/* Right Side */}
+              <div className="w-[30%] bg-gray-50">
+                <div className="h-full p-4 flex flex-col">
+                  <h2 className="text-lg font-bold mb-4">Order Summary</h2>
+                  {/* Order Items */}
+                  <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+                    {order.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition"
+                      >
+                        <div>
+                          <p className="font-medium">{item.name}</p>
+                          <p className="text-sm text-gray-500">₹{item.price}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            className="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition"
+                            onClick={() => handleDecrease(item.id)}
+                          >
+                            -
+                          </button>
+                          <span>{item.qty}</span>
+                          <button
+                            className="px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition"
+                            onClick={() => handleIncrease(item.id)}
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Payment Options */}
+                  <div className="mt-4 border-t pt-4 space-y-4">
+                    {/* Is Paid Checkbox */}
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="isPaid"
+                        checked={isPaid}
+                        onChange={(e) => setIsPaid(e.target.checked)}
+                        className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                      />
+                      <label
+                        htmlFor="isPaid"
+                        className="text-gray-700 font-medium"
+                      >
+                        Is Paid?
+                      </label>
+                    </div>
+                    {/* Payment Method Dropdown */}
+                    {isPaid && (
+                      <div>
+                        <label className="block text-gray-700 font-medium mb-1">
+                          Payment Method
+                        </label>
+                        <select
+                          value={paymentMethod!}
+                          onChange={(e) => setPaymentMethod(e.target.value)}
+                          className="w-full border border-gray-300 rounded-lg p-2 focus:ring-green-500 focus:border-green-500"
+                        >
+                          <option value="">Select Payment Method</option>
+                          <option value={PaymentMode.ONLINE}>Online</option>
+                          <option value={PaymentMode.CASH}>Cash</option>
+                          <option value={PaymentMode.CARD}>Card</option>
+                          <option value={PaymentMode.UPI}>UPI</option>
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                  {/* Total & Button */}
+                  <div className="mt-4 border-t pt-4">
+                    <div className="flex justify-between items-center mb-4 text-lg font-bold">
+                      <span>Total:</span>
+                      <span className="text-green-600">₹{total}</span>
+                    </div>
+                    <button
+                      className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transition duration-200"
+                      onClick={handlePlaceOrder}
+                    >
+                      ✅ Place Order
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-            <div className="flex justify-between items-center text-sm text-gray-600">
-              <span className="flex items-center gap-1.5">
-                <svg
-                  className="h-4 w-4"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0110 13v-2.26A4.97 4.97 0 0112.93 7h0a4.97 4.97 0 012.93 3.74A6.97 6.97 0 0017 16c0 .34.024.673.07 1h-4.14zM2.07 17a6.97 6.97 0 001.5-4.33A5 5 0 015 13v-2.26A4.97 4.97 0 012.07 7h0a4.97 4.97 0 01-2.93 3.74A6.97 6.97 0 00-1 16c0 .34-.024.673-.07 1h4.14z"></path>
-                </svg>
-                4 Guests
-              </span>
-              <span className="font-semibold text-gray-800">$85.50</span>
-            </div>
-          </div>
-          <div className="bg-white rounded-xl shadow-md p-4 flex flex-col justify-between cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-300 status-cooking">
-            <div className="flex justify-between items-start mb-3">
-              <h3 className="text-lg font-bold text-gray-800">Table 2</h3>
-              <span className="text-sm font-medium text-gray-500 flex items-center gap-1">
-                <svg
-                  className="h-4 w-4"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    clip-rule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
-                    fill-rule="evenodd"
-                  ></path>
-                </svg>
-                00:08:19
-              </span>
-            </div>
-            <div className="flex items-center justify-center my-4 p-4 rounded-lg bg-amber-50">
-              <div className="text-center">
-                <p className="text-lg font-bold text-amber-700">Cooking</p>
-                <p className="text-sm text-amber-600">Order #12346</p>
-              </div>
-            </div>
-            <div className="mb-3">
-              <div className="w-full bg-gray-200 rounded-full h-1.5 dark:bg-gray-700">
-                <div
-                  className="bg-amber-500 h-1.5 rounded-full"
-                   style={{width: "45%"}}
-                ></div>
-              </div>
-            </div>
-            <div className="flex justify-between items-center text-sm text-gray-600">
-              <span className="flex items-center gap-1.5">
-                <svg
-                  className="h-4 w-4"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0110 13v-2.26A4.97 4.97 0 0112.93 7h0a4.97 4.97 0 012.93 3.74A6.97 6.97 0 0017 16c0 .34.024.673.07 1h-4.14zM2.07 17a6.97 6.97 0 001.5-4.33A5 5 0 015 13v-2.26A4.97 4.97 0 012.07 7h0a4.97 4.97 0 01-2.93 3.74A6.97 6.97 0 00-1 16c0 .34-.024.673-.07 1h4.14z"></path>
-                </svg>
-                2 Guests
-              </span>
-              <span className="font-semibold text-gray-800">$42.00</span>
-            </div>
-          </div>
-          <div className="bg-orange-50 border-2 border-dashed border-orange-300 rounded-xl shadow-sm p-4 flex flex-col justify-center items-center cursor-pointer hover:bg-orange-100 hover:border-orange-400 transition-colors duration-300">
-            <h3 className="text-lg font-bold text-orange-800">Table 3</h3>
-            <p className="text-sm text-orange-600">6 Seats</p>
-            <div className="mt-4 text-center">
-              <div className="flex items-center justify-center h-12 w-12 rounded-full bg-white border-2 border-dashed border-orange-300">
-                <svg
-                  className="h-6 w-6 text-orange-500"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M12 4v16m8-8H4"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  ></path>
-                </svg>
-              </div>
-              <p className="text-sm font-semibold text-orange-700 mt-2">
-                New Order
-              </p>
-            </div>
-          </div>
-          <div className="bg-white rounded-xl shadow-md p-4 flex flex-col justify-between cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-            <div className="flex justify-between items-start mb-3">
-              <h3 className="text-lg font-bold text-gray-800">Table 4</h3>
-              <span className="text-sm font-medium text-gray-500 flex items-center gap-1">
-                <svg
-                  className="h-4 w-4"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    clip-rule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
-                    fill-rule="evenodd"
-                  ></path>
-                </svg>
-                00:25:10
-              </span>
-            </div>
-            <div className="flex items-center justify-center my-4 p-4 rounded-lg bg-blue-50 status-ready">
-              <div className="text-center">
-                <p className="text-lg font-bold text-blue-600">Ready</p>
-                <p className="text-sm text-blue-500">Order #12348</p>
-              </div>
-            </div>
-            <div className="mb-3">
-              <div className="w-full bg-gray-200 rounded-full h-1.5 dark:bg-gray-700">
-                <div
-                  className="bg-blue-500 h-1.5 rounded-full"
-                  style={{width: "100%"}}
-                ></div>
-              </div>
-            </div>
-            <div className="flex justify-between items-center text-sm text-gray-600">
-              <span className="flex items-center gap-1.5">
-                <svg
-                  className="h-4 w-4"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0110 13v-2.26A4.97 4.97 0 0112.93 7h0a4.97 4.97 0 012.93 3.74A6.97 6.97 0 0017 16c0 .34.024.673.07 1h-4.14zM2.07 17a6.97 6.97 0 001.5-4.33A5 5 0 015 13v-2.26A4.97 4.97 0 012.07 7h0a4.97 4.97 0 01-2.93 3.74A6.97 6.97 0 00-1 16c0 .34-.024.673-.07 1h4.14z"></path>
-                </svg>
-                4 Guests
-              </span>
-              <span className="font-semibold text-gray-800">$112.75</span>
-            </div>
-          </div>
-          <div className="bg-white rounded-xl shadow-md p-4 flex flex-col justify-between cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-300 status-cooking">
-            <div className="flex justify-between items-start mb-3">
-              <h3 className="text-lg font-bold text-gray-800">Table 5</h3>
-              <span className="text-sm font-medium text-gray-500 flex items-center gap-1">
-                <svg
-                  className="h-4 w-4"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    clip-rule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
-                    fill-rule="evenodd"
-                  ></path>
-                </svg>
-                00:02:45
-              </span>
-            </div>
-            <div className="flex items-center justify-center my-4 p-4 rounded-lg bg-amber-50">
-              <div className="text-center">
-                <p className="text-lg font-bold text-amber-700">Cooking</p>
-                <p className="text-sm text-amber-600">Order #12349</p>
-              </div>
-            </div>
-            <div className="mb-3">
-              <div className="w-full bg-gray-200 rounded-full h-1.5 dark:bg-gray-700">
-                <div
-                  className="bg-amber-500 h-1.5 rounded-full"
-                   style={{width: "25%"}}
-                ></div>
-              </div>
-            </div>
-            <div className="flex justify-between items-center text-sm text-gray-600">
-              <span className="flex items-center gap-1.5">
-                <svg
-                  className="h-4 w-4"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0110 13v-2.26A4.97 4.97 0 0112.93 7h0a4.97 4.97 0 012.93 3.74A6.97 6.97 0 0017 16c0 .34.024.673.07 1h-4.14zM2.07 17a6.97 6.97 0 001.5-4.33A5 5 0 015 13v-2.26A4.97 4.97 0 012.07 7h0a4.97 4.97 0 01-2.93 3.74A6.97 6.97 0 00-1 16c0 .34-.024.673-.07 1h4.14z"></path>
-                </svg>
-                2 Guests
-              </span>
-              <span className="font-semibold text-gray-800">$55.25</span>
-            </div>
-          </div>
-          <div className="bg-orange-50 border-2 border-dashed border-orange-300 rounded-xl shadow-sm p-4 flex flex-col justify-center items-center cursor-pointer hover:bg-orange-100 hover:border-orange-400 transition-colors duration-300">
-            <h3 className="text-lg font-bold text-orange-800">Table 6</h3>
-            <p className="text-sm text-orange-600">8 Seats</p>
-            <div className="mt-4 text-center">
-              <div className="flex items-center justify-center h-12 w-12 rounded-full bg-white border-2 border-dashed border-orange-300">
-                <svg
-                  className="h-6 w-6 text-orange-500"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M12 4v16m8-8H4"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  ></path>
-                </svg>
-              </div>
-              <p className="text-sm font-semibold text-orange-700 mt-2">
-                New Order
-              </p>
-            </div>
-          </div>
-          <div className="bg-white rounded-xl shadow-md p-4 flex flex-col justify-between cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-            <div className="flex justify-between items-start mb-3">
-              <h3 className="text-lg font-bold text-gray-800">Table 7</h3>
-              <span className="text-sm font-medium text-gray-500 flex items-center gap-1">
-                <svg
-                  className="h-4 w-4"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    clip-rule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
-                    fill-rule="evenodd"
-                  ></path>
-                </svg>
-                00:18:05
-              </span>
-            </div>
-            <div className="flex items-center justify-center my-4 p-4 rounded-lg bg-teal-50 status-update">
-              <div className="text-center">
-                <p className="text-lg font-bold text-teal-700">Eating</p>
-                <p className="text-sm text-teal-600">Order #12351</p>
-              </div>
-            </div>
-            <div className="mb-3">
-              <div className="w-full bg-gray-200 rounded-full h-1.5 dark:bg-gray-700">
-                <div
-                  className="bg-teal-500 h-1.5 rounded-full"
-                 style={{width: "90%"}}
-                ></div>
-              </div>
-            </div>
-            <div className="flex justify-between items-center text-sm text-gray-600">
-              <span className="flex items-center gap-1.5">
-                <svg
-                  className="h-4 w-4"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0110 13v-2.26A4.97 4.97 0 0112.93 7h0a4.97 4.97 0 012.93 3.74A6.97 6.97 0 0017 16c0 .34.024.673.07 1h-4.14zM2.07 17a6.97 6.97 0 001.5-4.33A5 5 0 015 13v-2.26A4.97 4.97 0 012.07 7h0a4.97 4.97 0 01-2.93 3.74A6.97 6.97 0 00-1 16c0 .34-.024.673-.07 1h4.14z"></path>
-                </svg>
-                3 Guests
-              </span>
-              <span className="font-semibold text-gray-800">$68.00</span>
-            </div>
-          </div>
-          <div className="bg-white rounded-xl shadow-md p-4 flex flex-col justify-between cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-300 status-ready">
-            <div className="flex justify-between items-start mb-3">
-              <h3 className="text-lg font-bold text-gray-800">Takeaway 1</h3>
-              <span className="text-sm font-medium text-gray-500 flex items-center gap-1">
-                <svg
-                  className="h-4 w-4"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    clip-rule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
-                    fill-rule="evenodd"
-                  ></path>
-                </svg>
-                00:05:50
-              </span>
-            </div>
-            <div className="flex items-center justify-center my-4 p-4 rounded-lg bg-blue-50">
-              <div className="text-center">
-                <p className="text-lg font-bold text-blue-600">Ready</p>
-                <p className="text-sm text-blue-500">Order #12352</p>
-              </div>
-            </div>
-            <div className="mb-3">
-              <div className="w-full bg-gray-200 rounded-full h-1.5 dark:bg-gray-700">
-                <div
-                  className="bg-blue-500 h-1.5 rounded-full"
-                   style={{width: "100%"}}
-                ></div>
-              </div>
-            </div>
-            <div className="flex justify-between items-center text-sm text-gray-600">
-              <span className="flex items-center gap-1.5">
-                <svg
-                  className="h-4 w-4"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    clip-rule="evenodd"
-                    d="M2.003 5.884L10 2l7.997 3.884A2 2 0 0119 7.828V12a2 2 0 01-2 2h-2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2H5a2 2 0 01-2-2V7.828a2 2 0 011.003-1.944zM11 16v-2h2v2h2V7.828L10 4.116 5 7.828V16h2v-2h2v2h2z"
-                    fill-rule="evenodd"
-                  ></path>
-                </svg>
-                Online
-              </span>
-              <span className="font-semibold text-gray-800">$25.50</span>
             </div>
           </div>
         </div>
-      </main>
+      )}
+      {existingOrder && existingOrderData && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white w-[95%] h-[90%] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-gray-200">
+            {/* Header */}
+            <div className="flex justify-between items-center p-5 border-b bg-gradient-to-r from-green-500 to-green-600 text-white">
+              <h1 className="text-2xl font-bold">📦 Order Details</h1>
+              <button
+                onClick={() => setExistingOrder(false)}
+                className="text-white hover:text-gray-200 text-xl"
+              >
+                ✕
+              </button>
+            </div>
+            {/* Content */}
+            <div className="flex flex-1 overflow-hidden">
+              {/* Left Side (Categories + Items) */}
+              <div className="w-[70%] flex flex-col border-r">
+                {/* Categories */}
+                <div className="h-[40%] p-4 grid grid-cols-4 gap-4 overflow-y-auto">
+                  {categories?.map((cat: any) => (
+                    <div
+                      key={cat.id}
+                      className={`p-4 rounded-xl shadow bg-gradient-to-br ${getRandomGradient()} cursor-not-allowed opacity-70`}
+                    >
+                      <p className="font-semibold text-center">
+                        {cat.category}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                {/* Items */}
+                <div className="h-[60%] p-4 grid grid-cols-4 gap-4 overflow-y-auto">
+                  {existingOrderData.items?.map((item: any) => (
+                    <div
+                      key={item.id}
+                      className={`p-4 rounded-xl shadow bg-gradient-to-br ${getRandomGradient()} cursor-not-allowed opacity-70`}
+                    >
+                      <p className="font-medium">{item.name}</p>
+                      <p className="text-sm mt-1">₹{item.price}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* Right Side (Order Summary) */}
+              <div className="w-[30%] bg-gray-50 flex flex-col">
+                <div className="flex-1 p-4 flex flex-col">
+                  <h2 className="text-lg font-bold mb-4">Order Summary</h2>
+                  {/* Order Items */}
+                  <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+                    {existingOrderData.items?.map((item: any) => (
+                      <div
+                        key={item.id}
+                        className="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm border border-gray-100"
+                      >
+                        <div>
+                          <p className="font-medium">{item.name}</p>
+                          <p className="text-sm text-gray-500">
+                            ₹{item.price} × {item.qty}
+                          </p>
+                        </div>
+                        <div className="font-semibold text-gray-800">
+                          ₹{item.price * item.qty}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Payment Info */}
+                  <div className="mt-4 border-t pt-4 space-y-4">
+                    {/* Paid Checkbox */}
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="isPaid"
+                        checked={existingOrderData.isPaid}
+                        onChange={(e) =>
+                          setExistingOrderData((prev: any) => ({
+                            ...prev,
+                            isPaid: e.target.checked,
+                          }))
+                        }
+                        className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                      />
+                      <label htmlFor="isPaid" className="text-sm font-medium">
+                        Paid
+                      </label>
+                    </div>
+                    {/* Payment Method Dropdown */}
+                    <div>
+                      <label className="text-sm font-medium block mb-1">
+                        Payment Method
+                      </label>
+                      <select
+                        value={existingOrderData.paymentMethod || ""}
+                        onChange={(e) =>
+                          setExistingOrderData((prev: any) => ({
+                            ...prev,
+                            paymentMethod: e.target.value,
+                          }))
+                        }
+                        className="w-full border rounded-lg p-2 text-sm"
+                      >
+                        <option value="">Select Method</option>
+                        <option value="CASH">Cash</option>
+                        <option value="CARD">Card</option>
+                        <option value="UPI">UPI</option>
+                      </select>
+                    </div>
+                  </div>
+                  {/* Total */}
+                  <div className="mt-4 border-t pt-4 flex justify-between items-center text-lg font-bold">
+                    <span>Total:</span>
+                    <span className="text-blue-600">
+                      ₹{existingOrderData.total}
+                    </span>
+                  </div>
+                </div>
+                {/* Footer Buttons */}
+                <div className="p-4 border-t flex justify-end space-x-3 bg-white">
+                  <button
+                    onClick={() => setExistingOrder(false)}
+                    className="px-4 py-2 rounded-lg border text-gray-600 hover:bg-gray-100"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleUpdateOrder}
+                    
+                    className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-blue-700 cursor-pointer"
+                  >
+                    Update
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-export default Orders;
+export default OrdersComponent;
