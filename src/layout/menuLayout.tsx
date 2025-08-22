@@ -34,7 +34,7 @@ interface MenuItem {
 
 const MenuLayout: React.FC<PropsWithChildren> = ({ children }) => {
   const { pathname } = useLocation();
-
+  // @ts-expect-error - parameter is used in callback
   const [collapsed, setCollapsed] = useState(false);
   const [openMenuKey, setOpenMenuKey] = useState<string | null>(null);
 

@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { HiOutlineCheckCircle } from "react-icons/hi";
 
 const sampleData = [
   {
@@ -47,14 +46,14 @@ const sampleData = [
   },
 ];
 
-const PermissionTree = () => {
+const PermissionTree :React.FC= () => {
   const [menuData, setMenuData] = useState(sampleData);
   const [canUpdate, setCanUpdate] = useState(false);
 
-  const handleMainCheck = (menu) => {
-    const temp = menuData.map((m) => {
+  const handleMainCheck = (menu:any) => {
+    const temp = menuData.map((m:any) => {
       if (m.menuId === menu.menuId) {
-        const updatedSub = m.submenu.map((s) => ({
+        const updatedSub = m.submenu.map((s:any) => ({
           ...s,
           checked: !m.checked,
         }));
@@ -70,16 +69,16 @@ const PermissionTree = () => {
     checkPendingUpdate(temp);
   };
 
-  const handleSubCheck = (menu, submenu) => {
-    const temp = menuData.map((m) => {
+  const handleSubCheck = (menu:any, submenu:any) => {
+    const temp = menuData.map((m:any) => {
       if (m.menuId === menu.menuId) {
-        const updatedSub = m.submenu.map((s) =>
+        const updatedSub = m.submenu.map((s:any) =>
           s.submenuId === submenu.submenuId ? { ...s, checked: !s.checked } : s
         );
         return {
           ...m,
           submenu: updatedSub,
-          checked: updatedSub.some((s) => s.checked),
+          checked: updatedSub.some((s:any) => s.checked),
         };
       }
       return m;
@@ -88,12 +87,12 @@ const PermissionTree = () => {
     checkPendingUpdate(temp);
   };
 
-  const handleActionCheck = (menu, submenu, actionItem) => {
-    const temp = menuData.map((m) => {
+  const handleActionCheck = (menu:any, submenu:any, actionItem:any) => {
+    const temp = menuData.map((m:any) => {
       if (m.menuId === menu.menuId) {
-        const updatedSub = m.submenu.map((s) => {
+        const updatedSub = m.submenu.map((s:any) => {
           if (s.submenuId === submenu.submenuId) {
-            const act = s.updatedActions.map((a) =>
+            const act = s.updatedActions.map((a:any) =>
               a.action === actionItem.action
                 ? { ...a, checked: !a.checked }
                 : a
@@ -110,15 +109,15 @@ const PermissionTree = () => {
     checkPendingUpdate(temp);
   };
 
-  const checkPendingUpdate = (data) => {
-    const checkedAny = data.some((m) =>
-      m.submenu.some((s) => s.checked)
+  const checkPendingUpdate = (data:any) => {
+    const checkedAny = data.some((m:any) =>
+      m.submenu.some((s:any) => s.checked)
     );
     setCanUpdate(checkedAny);
   };
 
-  const renderSubmenu = (menu, submenuList) => {
-    return submenuList.map((sub) => (
+  const renderSubmenu = (menu:any, submenuList:any) => {
+    return submenuList.map((sub:any ) => (
       <div key={sub.submenuId} className="ml-5 mt-2">
         <label className="inline-flex items-center gap-2">
           <input
@@ -131,7 +130,7 @@ const PermissionTree = () => {
         </label>
         {/* actions */}
         <div className="ml-8 mt-1 space-y-1">
-          {sub.updatedActions.map((action) => (
+          {sub.updatedActions.map((action:any) => (
             <label
               key={action.action}
               className="inline-flex items-center gap-2 mr-4"
