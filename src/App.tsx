@@ -22,6 +22,7 @@ import Category from "./pages/Category/Category";
 import Items from "./pages/Items/Items";
 import ExpenseItems from "./pages/ExpenseItems/ExpenseItems";
 import Expenses from "./pages/Expenses/Expenses";
+import PoInventory from "./pages/POInventory/PoInventory";
 
 type JwtPayload = {
   id: number | string;
@@ -164,10 +165,18 @@ function App() {
               </MenuLayout>
             }
           />
+          <Route
+            path="/poinventory"
+            element={
+              <MenuLayout>
+                <PoInventory />
+              </MenuLayout>
+            }
+          />
         </Route>
         <Route
           path="*"
-          element={<Navigate to={token ? "/expenses/items" : "/login"} />}
+          element={<Navigate to={token ? "/login" : "/login"} />}
         />
       </Routes>
     </BrowserRouter>

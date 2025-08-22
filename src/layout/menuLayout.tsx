@@ -19,9 +19,12 @@ import {
   FaClipboardList,
   FaUserTie,
   FaFileInvoiceDollar,
+  FaPowerOff,
 } from "react-icons/fa";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { PropsWithChildren } from "react";
+import { logout } from "../store/authSlice";
+import { useDispatch } from "react-redux";
 
 interface MenuItem {
   key: string;
@@ -34,9 +37,12 @@ interface MenuItem {
 
 const MenuLayout: React.FC<PropsWithChildren> = ({ children }) => {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
   // @ts-expect-error - parameter is used in callback
   const [collapsed, setCollapsed] = useState(false);
   const [openMenuKey, setOpenMenuKey] = useState<string | null>(null);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const toggleMenu = (key: string) => {
     setOpenMenuKey((prev) => (prev === key ? null : key));
@@ -129,7 +135,7 @@ const MenuLayout: React.FC<PropsWithChildren> = ({ children }) => {
       key: "Purchase-Order",
       label: "Purchase Orders",
       icon: <FaFileInvoiceDollar />,
-      children:[
+      children: [
         {
           key: "purchase-order-list",
           label: "Orders List",
@@ -139,10 +145,10 @@ const MenuLayout: React.FC<PropsWithChildren> = ({ children }) => {
         {
           key: "purchase-order-items",
           label: "Orders Items",
-          to: "/purchase-orders/items",
+          to: "/poinventory",
           icon: <FaBoxes />,
         },
-      ]
+      ],
     },
     {
       key: "expense",
@@ -189,6 +195,15 @@ const MenuLayout: React.FC<PropsWithChildren> = ({ children }) => {
       ],
     },
   ];
+
+  const handleLogout = () => {
+    localStorage.clear();
+    setShowLogoutModal(false);
+    dispatch(logout());
+    setTimeout(() => {
+      navigate("/login");
+    }, 2000);
+  };
   const renderMenuItem = (item: MenuItem) => {
     if (item.children) {
       const isOpen = openMenuKey === item.key;
@@ -269,21 +284,62 @@ const MenuLayout: React.FC<PropsWithChildren> = ({ children }) => {
       <div
         className={`fixed top-0 left-0 h-screen w-[20%] bg-[#f5e8dd] shadow-lg p-4 flex flex-col`}
       >
+        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           {!collapsed && (
             <h2 className="text-lg font-bold text-[#F97316]">Restaurant POS</h2>
           )}
         </div>
 
+        {/* Menu */}
         <nav className="flex flex-col gap-1 flex-grow overflow-y-auto">
           {mainMenuItems.map((item) => renderMenuItem(item))}
         </nav>
+
+        {/* Footer - Logout */}
+        <div className="mt-auto pt-4 border-t">
+          <button
+            onClick={() => setShowLogoutModal(true)}
+            className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-red-600 hover:bg-red-100 transition"
+          >
+            <FaPowerOff className="text-lg" />
+            {!collapsed && <span>Logout</span>}
+          </button>
+        </div>
       </div>
 
       {/* Main Content */}
       <div className="ml-[20%] flex-1 p-6 bg-gray-50 min-h-screen">
         {children}
       </div>
+
+      {/* Logout Modal */}
+      {showLogoutModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-skyblue bg-opacity-40 z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-[90%] max-w-sm">
+            <h3 className="text-lg font-semibold text-gray-800">
+              Confirm Logout
+            </h3>
+            <p className="text-gray-600 mt-2">
+              Are you sure you want to log out?
+            </p>
+            <div className="flex justify-end gap-3 mt-4">
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleLogout}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
