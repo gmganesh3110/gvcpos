@@ -162,7 +162,7 @@ const Tables: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col p-6 w-[80%]">
+    <div className="flex flex-col p-6 w-[100%]">
       {/* Title + Actions */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-bold">Tables</h2>

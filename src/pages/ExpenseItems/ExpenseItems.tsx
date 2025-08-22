@@ -5,9 +5,9 @@ import { FiPlus } from "react-icons/fi";
 import Loader from "../../components/Loader";
 import { useSelector } from "react-redux";
 
-interface Block {
+interface ExpenseItem {
   id: number;
-  blockName: string;
+  expenseItem: string;
   description: string;
   createdBy: string;
   activeStatus: number;
@@ -17,17 +17,17 @@ const limit = 5;
 
 const ExpenseItems: React.FC = () => {
   const [page, setPage] = useState<number>(1);
-  const [blockData, setBlockData] = useState<Block[]>([]);
+  const [expenseData, setExpenseData] = useState<ExpenseItem[]>([]);
   const [totalCount, setTotalCount] = useState<number>(0);
-  const [searchBlock, setSearchBlock] = useState<string>("");
+  const [searchExpense, setSearchExpense] = useState<string>("");
   const [searchStatus, setSearchStatus] = useState<string>("");
   const [addForm, setAddForm] = useState<boolean>(false);
   const [editForm, setEditForm] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [blockName, setBlockName] = useState<string>("");
+  const [expenseItem, setExpenseItem] = useState<string>("");
   const [description, setDescription] = useState<string>("");
   const [status, setStatus] = useState<number>(1);
-  const [editBlockName, setEditBlockName] = useState<string>("");
+  const [editExpenseItem, setEditExpenseItem] = useState<string>("");
   const [editDescription, setEditDescription] = useState<string>("");
   const [editStatus, setEditStatus] = useState<number>(1);
   const [editId, setEditId] = useState<number>(0);
@@ -38,19 +38,19 @@ const ExpenseItems: React.FC = () => {
   const totalPages = Math.ceil(totalCount / limit);
 
   useEffect(() => {
-    getAllBlocks();
-  }, [page, searchBlock, searchStatus]);
+    getAllExpenseItems();
+  }, [page, searchExpense, searchStatus]);
 
-  const getAllBlocks = async () => {
+  const getAllExpenseItems = async () => {
     try {
       setIsLoading(true);
-      const res: any = await postAxios("/blocks/getall", {
+      const res: any = await postAxios("/expenseitems/getall", {
         status: searchStatus || undefined,
-        blockName: searchBlock,
+        expenseItem: searchExpense,
         start: (page - 1) * limit,
         limit,
       });
-      setBlockData(res.data[0]);
+      setExpenseData(res.data[0]);
       setTotalCount(res.data[1][0].tot);
       setIsLoading(false);
     } catch (err) {
@@ -64,8 +64,8 @@ const ExpenseItems: React.FC = () => {
     try {
       setEditForm(true);
       setIsLoading(true);
-      const res: any = await postAxios("/blocks/getone", { id });
-      setEditBlockName(res.data[0][0].blockName);
+      const res: any = await postAxios("/expenseitems/getone", { id });
+      setEditExpenseItem(res.data[0][0].expenseItem);
       setEditDescription(res.data[0][0].description);
       setEditStatus(res.data[0][0].activeStatus);
       setIsLoading(false);
@@ -76,52 +76,52 @@ const ExpenseItems: React.FC = () => {
   };
 
   const handleDelete = async (id: number) => {
-    await postAxios("/blocks/delete", {
+    await postAxios("/expenseitems/delete", {
       id,
       updatedBy: User.id,
     });
-    getAllBlocks();
+    getAllExpenseItems();
   };
 
   const handleSearch = () => {
     setPage(1);
-    getAllBlocks();
+    getAllExpenseItems();
   };
 
   const onAddFormClose = () => {
     setAddForm(false);
-    setBlockName("");
+    setExpenseItem("");
     setDescription("");
     setStatus(1);
   };
 
-  const handleUpdateBlock = async () => {
-    if (!editBlockName) return;
+  const handleUpdateExpenseItem = async () => {
+    if (!editExpenseItem) return;
 
-    await postAxios("/blocks/update", {
+    await postAxios("/expenseitems/update", {
       id: editId,
-      blockName: editBlockName,
+      expenseItem: editExpenseItem,
       description: editDescription,
       activeStatus: editStatus,
       updatedBy: User.id,
     });
     setEditForm(false);
-    getAllBlocks();
+    getAllExpenseItems();
     setEditId(0);
   };
 
-  const handleAddBlock = async () => {
-    if (!blockName) return;
+  const handleAddExpenseItem = async () => {
+    if (!expenseItem) return;
     try {
-      await postAxios("/blocks/add", {
-        blockName,
+      await postAxios("/expenseitems/add", {
+        expenseItem,
         description,
         activeStatus: status,
         createdBy: User.id,
       });
       setAddForm(false);
-      getAllBlocks();
-      setBlockName("");
+      getAllExpenseItems();
+      setExpenseItem("");
       setDescription("");
     } catch (err: any) {
       alert(err.message);
@@ -134,16 +134,16 @@ const ExpenseItems: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col w-[80%]">
+    <div className="flex flex-col w-[100%]">
       <div className="p-6">
         {/* Title + Actions */}
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold">Blocks/Tables</h2>
+          <h2 className="text-xl font-bold">Expense Items</h2>
           <button
             onClick={() => setAddForm(true)}
             className="px-4 py-2 rounded-md bg-orange-700 text-white flex items-center gap-2 hover:bg-orange-600 cursor-pointer"
           >
-            <FiPlus /> Add Block/Table
+            <FiPlus /> Add Expense Item
           </button>
         </div>
 
@@ -152,10 +152,10 @@ const ExpenseItems: React.FC = () => {
           <div>
             <input
               type="text"
-              placeholder="Search block"
+              placeholder="Search expense item"
               className="border border-gray-300 rounded-md px-3 py-2 w-64"
-              value={searchBlock}
-              onChange={(e) => setSearchBlock(e.target.value)}
+              value={searchExpense}
+              onChange={(e) => setSearchExpense(e.target.value)}
             />
           </div>
           <div>
@@ -192,7 +192,7 @@ const ExpenseItems: React.FC = () => {
                       Id
                     </th>
                     <th className="p-5 text-left text-sm font-semibold text-gray-900">
-                      Block Name
+                      Expense Item
                     </th>
                     <th className="p-5 text-left text-sm font-semibold text-gray-900">
                       Description
@@ -209,22 +209,22 @@ const ExpenseItems: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-300">
-                  {blockData.map((block: Block) => (
+                  {expenseData.map((expense: ExpenseItem) => (
                     <tr
-                      key={block.id}
+                      key={expense.id}
                       className="transition-all duration-500 hover:bg-gray-50"
                     >
                       <td className="p-5 text-sm font-medium text-gray-900">
-                        {block.id}
+                        {expense.id}
                       </td>
                       <td className="p-5 text-sm font-medium text-gray-900">
-                        {block.blockName}
+                        {expense.expenseItem}
                       </td>
                       <td className="p-5 text-sm font-medium text-gray-900">
-                        {block.description}
+                        {expense.description}
                       </td>
                       <td className="p-5 text-sm font-medium text-gray-900">
-                        {block.createdBy}
+                        {expense.createdBy}
                       </td>
                       <td className="p-5 text-sm font-medium text-gray-900">
                         <div className="py-1.5 px-2.5 bg-emerald-50 rounded-full flex justify-center w-20 items-center gap-1">
@@ -236,7 +236,7 @@ const ExpenseItems: React.FC = () => {
                           >
                             <circle cx="2.5" cy="3" r="2.5" fill="#059669" />
                           </svg>
-                          {block.activeStatus == 1 ? (
+                          {expense.activeStatus == 1 ? (
                             <span className="font-medium text-xs text-green-600">
                               Active
                             </span>
@@ -250,7 +250,7 @@ const ExpenseItems: React.FC = () => {
                       <td className="flex p-5 gap-2">
                         {/* Edit */}
                         <button
-                          onClick={() => handleEdit(block.id)}
+                          onClick={() => handleEdit(expense.id)}
                           className="p-2 rounded-full bg-white transition-all duration-200 hover:bg-orange-500 cursor-pointer"
                         >
                           <HiPencilAlt className="w-5 h-5 text-indigo-500 hover:text-white" />
@@ -258,7 +258,7 @@ const ExpenseItems: React.FC = () => {
                         {/* Delete */}
                         <button
                           onClick={() => {
-                            setSelectedId(block.id);
+                            setSelectedId(expense.id);
                             setShowConfirm(true);
                           }}
                           className="p-2 rounded-full bg-white transition-all duration-200 hover:bg-red-600 cursor-pointer"
@@ -328,7 +328,7 @@ const ExpenseItems: React.FC = () => {
               Are you sure?
             </h3>
             <p className="text-sm text-gray-600 mb-6">
-              Do you really want to delete this block? This action cannot be
+              Do you really want to delete this expense item? This action cannot be
               undone.
             </p>
             <div className="flex justify-end gap-3">
@@ -363,7 +363,7 @@ const ExpenseItems: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-opacity-40">
           <div className="bg-white rounded-lg shadow-lg w-full max-w-md">
             <div className="flex justify-between items-center border-b px-4 py-2">
-              <h3 className="font-semibold text-lg">Add Block Form</h3>
+              <h3 className="font-semibold text-lg">Add Expense Item Form</h3>
               <button
                 onClick={onAddFormClose}
                 className="text-gray-500 hover:text-black cursor-pointer"
@@ -374,13 +374,13 @@ const ExpenseItems: React.FC = () => {
             <div className="p-8 bg-gray-50 rounded-xl shadow-sm">
               <div className="mb-6">
                 <label className="block mb-2 text-sm font-semibold text-gray-700">
-                  Block Name
+                  Expense Item
                 </label>
                 <input
-                  value={blockName}
-                  onChange={(e) => setBlockName(e.target.value)}
+                  value={expenseItem}
+                  onChange={(e) => setExpenseItem(e.target.value)}
                   type="text"
-                  placeholder="Enter Block Name"
+                  placeholder="Enter Expense Item"
                   className="w-full border border-gray-300 rounded-lg px-4 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   required
                 />
@@ -420,7 +420,7 @@ const ExpenseItems: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  onClick={handleAddBlock}
+                  onClick={handleAddExpenseItem}
                   className="px-6 py-2.5 rounded-lg bg-orange-500 text-white font-medium hover:bg-indigo-700 transition cursor-pointer"
                 >
                   Submit
@@ -436,7 +436,7 @@ const ExpenseItems: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-opacity-40">
           <div className="bg-white rounded-lg shadow-lg w-full max-w-md">
             <div className="flex justify-between items-center border-b px-4 py-2">
-              <h3 className="font-semibold text-lg">Edit Block Form</h3>
+              <h3 className="font-semibold text-lg">Edit Expense Item Form</h3>
               <button
                 onClick={onEditFormClose}
                 className="text-gray-500 hover:text-black cursor-pointer"
@@ -447,13 +447,13 @@ const ExpenseItems: React.FC = () => {
             <div className="p-8 bg-gray-50 rounded-xl shadow-sm">
               <div className="mb-6">
                 <label className="block mb-2 text-sm font-semibold text-gray-700">
-                  Block Name
+                  Expense Item
                 </label>
                 <input
                   type="text"
-                  value={editBlockName}
-                  onChange={(e) => setEditBlockName(e.target.value)}
-                  placeholder="Enter Block Name"
+                  value={editExpenseItem}
+                  onChange={(e) => setEditExpenseItem(e.target.value)}
+                  placeholder="Enter Expense Item"
                   className="w-full border border-gray-300 rounded-lg px-4 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   required
                 />
@@ -492,7 +492,7 @@ const ExpenseItems: React.FC = () => {
                   Cancel
                 </button>
                 <button
-                  onClick={handleUpdateBlock}
+                  onClick={handleUpdateExpenseItem}
                   type="submit"
                   className="px-6 py-2.5 rounded-lg bg-orange-500 text-white font-medium hover:bg-indigo-700 transition cursor-pointer"
                 >

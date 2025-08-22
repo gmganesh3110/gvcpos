@@ -134,7 +134,7 @@ const BlockPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col w-[80%]">
+    <div className="flex flex-col w-[100%]">
       <div className="p-6">
         {/* Title + Actions */}
         <div className="flex items-center justify-between mb-4">
