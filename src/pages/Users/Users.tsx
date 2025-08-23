@@ -36,7 +36,7 @@ const Users: React.FC = () => {
     try {
       setIsLoading(true);
       const res: any = await postAxios("/user-role/getall", {
-        userRole:role,
+        userRole: role,
         start: (page - 1) * limit,
         limit,
       });
@@ -147,7 +147,9 @@ const Users: React.FC = () => {
         </div>
         {/* TABLE */}
         {isLoading ? (
-          <Loader />
+          <div className="flex justify-center items-center h-120">
+            <Loader />
+          </div>
         ) : (
           <div className="overflow-x-auto pb-4 ">
             <div className="min-w-full inline-block align-middle">
@@ -279,42 +281,83 @@ const Users: React.FC = () => {
           </div>
         )}
         {/* PAGINATION */}
-        <div className="flex justify-between items-center mt-4">
+        <div className="flex justify-between items-center mt-4 px-6">
           <div className="text-sm text-gray-700">
             Showing {(page - 1) * limit + 1} to{" "}
             {Math.min(page * limit, totalCount)} of {totalCount} results
           </div>
+
           <nav className="inline-flex shadow-sm" aria-label="Pagination">
+            {/* Previous */}
             <button
               disabled={page === 1}
               onClick={() => setPage((prev) => prev - 1)}
-              className={`px-3 py-2 border text-sm font-medium cursor-pointer rounded-l-md ${
+              className={`px-3 py-2 border text-sm font-medium rounded-l-md ${
                 page === 1
-                  ? "bg-gray-200 text-gray-500"
+                  ? "bg-gray-200 text-gray-500 cursor-not-allowed"
                   : "bg-white hover:bg-gray-50"
               }`}
             >
               Previous
             </button>
-            {Array.from({ length: totalPages }).map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setPage(i + 1)}
-                className={`px-3 py-2 border-t border-b text-sm cursor-pointer font-medium ${
-                  page === i + 1
-                    ? "bg-orange-500 text-white"
-                    : "bg-white hover:bg-gray-50"
-                }`}
-              >
-                {i + 1}
-              </button>
-            ))}
+
+            {/* Page Numbers */}
+            {(() => {
+              const pages: (number | string)[] = [];
+              const showRange = 2; // how many pages around current
+
+              if (totalPages <= 7) {
+                // show all if small
+                for (let i = 1; i <= totalPages; i++) pages.push(i);
+              } else {
+                pages.push(1); // first page
+
+                if (page > showRange + 2) pages.push("..."); // left dots
+
+                for (
+                  let i = Math.max(2, page - showRange);
+                  i <= Math.min(totalPages - 1, page + showRange);
+                  i++
+                ) {
+                  pages.push(i);
+                }
+
+                if (page < totalPages - (showRange + 1)) pages.push("..."); // right dots
+
+                pages.push(totalPages); // last page
+              }
+
+              return pages.map((p, i) =>
+                p === "..." ? (
+                  <span
+                    key={i}
+                    className="px-3 py-2 border-t border-b text-sm text-gray-400"
+                  >
+                    ...
+                  </span>
+                ) : (
+                  <button
+                    key={i}
+                    onClick={() => setPage(p as number)}
+                    className={`px-3 py-2 border-t border-b text-sm font-medium ${
+                      page === p
+                        ? "bg-orange-500 text-white"
+                        : "bg-white hover:bg-gray-50"
+                    }`}
+                  >
+                    {p}
+                  </button>
+                )
+              );
+            })()}
+
+            {/* Next */}
             <button
               disabled={page === totalPages}
               onClick={() => setPage((prev) => prev + 1)}
-              className={`px-3 py-2 border text-sm font-medium cursor-pointer rounded-r-md ${
+              className={`px-3 py-2 border text-sm font-medium rounded-r-md ${
                 page === totalPages
-                  ? "bg-gray-200 text-gray-500"
+                  ? "bg-gray-200 text-gray-500 cursor-not-allowed"
                   : "bg-white hover:bg-gray-50"
               }`}
             >

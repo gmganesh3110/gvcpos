@@ -234,6 +234,9 @@ const Dashboard = () => {
     }
   };
 
+  const handleSaveOrder=()=>{}
+  const handleSaveAndPrint=()=>{}
+
   return (
     <div className="container mx-auto px-4 py-8 overflow-auto">
       <div className="flex items-center justify-between mb-8">
@@ -399,9 +402,8 @@ const Dashboard = () => {
             {/* Content */}
             <div className="flex flex-1 overflow-hidden">
               {/* Left Side */}
-              <div className="w-[70%] flex flex-col border-r">
-                {/* Categories */}
-                <div className="h-[40%] p-4 grid grid-cols-4 gap-4 overflow-y-auto">
+              <div className="w-[20%] grid  border-r">
+                <div className="h-[100%] p-4 grid grid-cols-1 gap-4 overflow-y-auto">
                   {categories.map((cat: any) => (
                     <div
                       key={cat.id}
@@ -414,14 +416,31 @@ const Dashboard = () => {
                     </div>
                   ))}
                 </div>
+              </div>
+              <div className="w-[50%] flex  border-r">
+                {/* Categories */}
                 {/* Items */}
-                <div className="h-[60%] p-4 grid grid-cols-4 gap-4 overflow-y-auto">
+                <div className="h-[100%] p-4 grid grid-cols-3 gap-4 overflow-y-auto">
                   {filteredItems.map((item) => (
                     <div
                       key={item.id}
                       className={`p-4 rounded-xl shadow bg-gradient-to-br ${getRandomGradient()} cursor-pointer hover:scale-105 transition transform hover:shadow-md`}
                       onClick={() => handleAddItem(item)}
                     >
+                      <div className="relative w-full h-32 bg-gradient-to-br from-gray-100 to-gray-50 rounded-t-3xl overflow-hidden flex items-center justify-center">
+                        {item.image ? (
+                          <img
+                            src={item.image}
+                            alt={item.name}
+                            className="object-cover w-full h-full transform group-hover:scale-110 transition-transform duration-700"
+                          />
+                        ) : (
+                          <span className="text-gray-400 text-sm">
+                            No Image
+                          </span>
+                        )}
+                      </div>
+
                       <p className="font-medium">{item.name}</p>
                       <p className="text-sm mt-1">₹{item.price}</p>
                     </div>
@@ -432,6 +451,7 @@ const Dashboard = () => {
               <div className="w-[30%] bg-gray-50">
                 <div className="h-full p-4 flex flex-col">
                   <h2 className="text-lg font-bold mb-4">Order Summary</h2>
+
                   {/* Order Items */}
                   <div className="flex-1 overflow-y-auto space-y-3 pr-1">
                     {order.map((item) => (
@@ -461,6 +481,7 @@ const Dashboard = () => {
                       </div>
                     ))}
                   </div>
+
                   {/* Payment Options */}
                   <div className="mt-4 border-t pt-4 space-y-4">
                     {/* Is Paid Checkbox */}
@@ -479,6 +500,7 @@ const Dashboard = () => {
                         Is Paid?
                       </label>
                     </div>
+
                     {/* Payment Method Dropdown */}
                     {isPaid && (
                       <div>
@@ -499,33 +521,55 @@ const Dashboard = () => {
                       </div>
                     )}
 
+                    {/* Order Status */}
                     <div>
-                        <label className="block text-gray-700 font-medium mb-1">
-                          Status
-                        </label>
-                        <select
-                          value={orderStatus!}
-                          onChange={(e) => setOrderStatus(e.target.value! as "ORDERED")}
-                          className="w-full border border-gray-300 rounded-lg p-2 focus:ring-green-500 focus:border-green-500"
-                        >
-                          <option value="">Select Order Status</option>
-                          <option value={OrderStatus.ORDERED}>Ordered</option>
-                          <option value={OrderStatus.COMPLETED}>Completed</option>
-                          <option value={OrderStatus.CANCELLED}>Cancelled</option>
-                        </select>
-                      </div>
+                      <label className="block text-gray-700 font-medium mb-1">
+                        Status
+                      </label>
+                      <select
+                        value={orderStatus!}
+                        onChange={(e) =>
+                          setOrderStatus(e.target.value! as "ORDERED")
+                        }
+                        className="w-full border border-gray-300 rounded-lg p-2 focus:ring-green-500 focus:border-green-500"
+                      >
+                        <option value="">Select Order Status</option>
+                        <option value={OrderStatus.ORDERED}>Ordered</option>
+                        <option value={OrderStatus.COMPLETED}>Completed</option>
+                        <option value={OrderStatus.CANCELLED}>Cancelled</option>
+                      </select>
+                    </div>
                   </div>
-                  {/* Total & Button */}
-                  <div className="mt-4 border-t pt-4">
+
+                  {/* Total & Buttons */}
+                  <div className="mt-4 border-t pt-4 space-y-3">
                     <div className="flex justify-between items-center mb-4 text-lg font-bold">
                       <span>Total:</span>
                       <span className="text-green-600">₹{total}</span>
                     </div>
+
+                    {/* New Buttons Row */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white py-2 rounded-lg font-semibold shadow-md hover:shadow-lg transition"
+                        onClick={handleSaveOrder}
+                      >
+                        💾 Save
+                      </button>
+                      <button
+                        className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white py-2 rounded-lg font-semibold shadow-md hover:shadow-lg transition"
+                        onClick={handleSaveAndPrint}
+                      >
+                        🖨 Save & Print
+                      </button>
+                    </div>
+
+                    {/* Place Order */}
                     <button
                       className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transition duration-200"
                       onClick={handlePlaceOrder}
                     >
-                      ✅ Place Order
+                      ✅ Complete Order
                     </button>
                   </div>
                 </div>
@@ -663,7 +707,7 @@ const Dashboard = () => {
                         <option value={OrderStatus.SERVED}>Served</option>
                         <option value={OrderStatus.COMPLETED}>Completed</option>
                       </select>
-                      </div>  
+                    </div>
                   </div>
 
                   {/* Total */}
