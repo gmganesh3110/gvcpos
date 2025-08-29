@@ -20,6 +20,7 @@ import {
   FaUserTie,
   FaFileInvoiceDollar,
   FaPowerOff,
+  FaUtensils,
 } from "react-icons/fa";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { PropsWithChildren } from "react";
@@ -53,6 +54,12 @@ const MenuLayout: React.FC<PropsWithChildren> = ({ children }) => {
       key: "dashboard",
       label: "Dashboard",
       icon: <FaTachometerAlt />,
+      to: "/dashboard",
+    },
+    {
+      key: "dining",
+      label: "Dining",
+      icon: <FaUtensils />,
       to: "/",
     },
     {
@@ -213,7 +220,7 @@ const MenuLayout: React.FC<PropsWithChildren> = ({ children }) => {
             onClick={() => toggleMenu(item.key)}
             className={`flex items-center justify-between w-full px-3 py-2 rounded-lg transition-colors duration-200
               ${
-                isOpen ? "bg-purple-100 text-[#F97316]" : "hover:bg-purple-50"
+                isOpen ? "bg-purple-100 text-blue-500" : "hover:bg-purple-50"
               }`}
           >
             <div className="flex items-center gap-3">
@@ -259,8 +266,8 @@ const MenuLayout: React.FC<PropsWithChildren> = ({ children }) => {
         className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200
           ${
             isActive
-              ? "bg-white text-[rgb(235,128,62)] border-l-4 border-[#F97316]"
-              : "hover:bg-purple-50"
+              ? "bg-white text-blue-500 border-l-4 border-blue-500 font-semibold"
+              : "text-black hover:bg-purple-50"
           }`}
       >
         <span className="text-lg">{item.icon}</span>
@@ -268,7 +275,7 @@ const MenuLayout: React.FC<PropsWithChildren> = ({ children }) => {
           <>
             <span>{item.label}</span>
             {item.badge && (
-              <span className="ml-auto bg-purple-200 text-[#F97316] text-xs font-bold px-2 py-0.5 rounded-full text-center">
+              <span className="ml-auto bg-purple-200 text-white text-xs font-bold px-2 py-0.5 rounded-full text-center">
                 {item.badge}
               </span>
             )}
@@ -282,12 +289,12 @@ const MenuLayout: React.FC<PropsWithChildren> = ({ children }) => {
     <div className="flex font-roboto">
       {/* Sidebar */}
       <div
-        className={`fixed top-0 left-0 h-screen w-[20%] bg-[#f5e8dd] shadow-lg p-4 flex flex-col`}
+        className={`fixed top-0 left-0 h-screen w-[20%] bg-white shadow-lg p-4 flex flex-col`}
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           {!collapsed && (
-            <h2 className="text-lg font-bold text-[#F97316]">Restaurant POS</h2>
+            <h2 className="text-lg font-bold text-blue-500">Restaurant POS</h2>
           )}
         </div>
 
@@ -300,7 +307,7 @@ const MenuLayout: React.FC<PropsWithChildren> = ({ children }) => {
         <div className="mt-auto pt-4 border-t">
           <button
             onClick={() => setShowLogoutModal(true)}
-            className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-red-600 hover:bg-red-100 transition"
+            className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-red-500 hover:bg-blue-100 transition"
           >
             <FaPowerOff className="text-lg" />
             {!collapsed && <span>Logout</span>}
@@ -317,7 +324,7 @@ const MenuLayout: React.FC<PropsWithChildren> = ({ children }) => {
       {showLogoutModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-skyblue bg-opacity-40 z-50">
           <div className="bg-white rounded-lg shadow-lg p-6 w-[90%] max-w-sm">
-            <h3 className="text-lg font-semibold text-gray-800">
+            <h3 className="text-lg font-semibold text-blue-600">
               Confirm Logout
             </h3>
             <p className="text-gray-600 mt-2">

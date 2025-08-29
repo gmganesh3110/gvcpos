@@ -1,47 +1,80 @@
-import React, { useEffect, useState } from "react";
-import { postAxios } from "../../services/AxiosService";
-import { useSelector } from "react-redux";
-import { PaymentMode } from "../../constants/Paymodes";
+import { useEffect, useState } from "react";
 import { OrderStatus } from "../../constants/OrderStatus";
 import { OrderType } from "../../constants/OrderTypes";
-import { FiPlus } from "react-icons/fi";
+import { postAxios } from "../../services/AxiosService";
 import Loader from "../../components/Loader";
-import { HiEye } from "react-icons/hi";
-import moment from "moment";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
-const limit = 5;
-const OrdersComponent: React.FC = () => {
-  const today = new Date();
-  const [orders, setOrders] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
+import { useSelector } from "react-redux";
+import { PaymentMode } from "../../constants/Paymodes";
+
+interface TableData {
+  blockId: number;
+  blockName: string;
+  tableId: number;
+  tableName: string;
+  orderId: number | null;
+  status: OrderStatus | null;
+  type: OrderType | null;
+  totalAmount?: number;
+  guests?: number;
+  elapsedTime?: string;
+}
+
+const Dining = () => {
+  const [tables, setTables] = useState<TableData[]>([]);
+  const [loading, setLoading] = useState(true);
   const [newOrder, setNewOrder] = useState(false);
-  const [existingOrder, setExistingOrder] = useState(false);
-  const [existingOrderData, setExistingOrderData] = useState<any>(null);
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [order, setOrder] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
   const [items, setItems] = useState<any[]>([]);
+  const [total, setTotal] = useState(0);
+  const [selectedTable, setSelectedTable] = useState<number | null>(null);
+  const [selectedBlock, setSelectedBlock] = useState<number | null>(null);
+  const [existingOrder, setExistingOrder] = useState(false);
+  const [existingOrderData, setExistingOrderData] = useState<any>(null);
   const [isPaid, setIsPaid] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<string | null>(null);
-  const [total, setTotal] = useState(0);
-  const [searchOrderId, setSearchOrderId] = useState<string | null>(null);
-  const [totalCount, setTotalCount] = useState<number>(0);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [page, setPage] = useState<number>(1);
-  const totalPages = Math.ceil(totalCount / limit);
-  const [fromDate, setFromDate] = useState<Date | null>(today);
-  const [toDate, setToDate] = useState<Date | null>(today);
-  const [orderType, setOrderType] = useState<string | null>(null);
-  const [orderStatus, setOrderStatus] = useState<string | null>(null);
+  const [orderStatus, setOrderStatus] = useState<OrderStatus | null>(null);
+  const [itemsLoading, setItemsLoading] = useState(false);
+  const [mostOrderedItems, setMostOrderedItems] = useState<any[]>([]);
+
   const User = useSelector((state: any) => state.auth.user);
-  const [itemsLoading, setItemsLoading] = useState<boolean>(false);
+
   const filteredItems = selectedCategory
-    ? items.filter((i: any) => i.categoryId === selectedCategory)
+    ? items.filter((i) => i.categoryId === selectedCategory)
     : items;
 
   useEffect(() => {
-    setTotal(order.reduce((sum, item) => sum + item.price * item.qty, 0));
-  }, [order]);
+    fetchTables();
+  }, []);
+
+  const fetchTables = async () => {
+    try {
+      setLoading(true);
+      const response: any = await postAxios(
+        "/orders/getblocksandtableswithorders"
+      );
+      const data = response.data;
+
+      const transformedTables = data[0].map((table: TableData) => ({
+        ...table,
+        totalAmount: table.totalAmount,
+        guests: table.orderId ? Math.floor(Math.random() * 6) + 1 : 0,
+        elapsedTime: table.orderId
+          ? `${Math.floor(Math.random() * 30)}:${Math.floor(Math.random() * 60)
+              .toString()
+              .padStart(2, "0")}`
+          : null,
+      }));
+
+      setTables(transformedTables);
+    } catch (error) {
+      console.error("Error fetching tables:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fetchCategories = async () => {
     try {
       const response: any = await postAxios("/categories/getall", {
@@ -55,19 +88,23 @@ const OrdersComponent: React.FC = () => {
       console.error("Error fetching categories:", error);
     }
   };
+
   useEffect(() => {
     fetchCategories();
   }, [newOrder]);
 
   const fetchFilteredItems = async () => {
-    setItemsLoading(true);
     try {
+      setItemsLoading(true);
       const response: any = await postAxios("/items/getall", {
         categoryId: selectedCategory,
         start: 0,
         limit: 50,
       });
       const data: any = response.data[0];
+      if (!selectedCategory) {
+        setMostOrderedItems(data);
+      }
       setItems(data);
     } catch (error) {
       console.error("Error fetching filtered items:", error);
@@ -75,55 +112,10 @@ const OrdersComponent: React.FC = () => {
       setItemsLoading(false);
     }
   };
+
   useEffect(() => {
     fetchFilteredItems();
   }, [selectedCategory, newOrder]);
-
-  const fetchOrders = async () => {
-    setIsLoading(true);
-    try {
-      const response: any = await postAxios("/orders/getallorders", {
-        orderId: searchOrderId || 0,
-        fromDate: fromDate ? moment(fromDate).format("YYYY-MM-DD") : null,
-        toDate: toDate ? moment(toDate).format("YYYY-MM-DD") : null,
-        orderType: orderType || null,
-        orderStatus: orderStatus || null,
-        start: (page - 1) * limit,
-        limit: limit,
-      });
-      const data = response.data[0];
-      setOrders(data);
-      setTotalCount(response.data[1][0].tot);
-    } catch (error) {
-      console.error("Error fetching orders:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchOrders();
-  }, [page, searchOrderId]);
-
-  const handleUpdateOrder = async () => {
-    try {
-      await postAxios("/orders/updateorder", {
-        orderId: existingOrderData.orderId,
-        isPaid: existingOrderData.isPaid,
-        paymentMode: existingOrderData.paymentMethod,
-        modifiedBy: User.id,
-        status: OrderStatus.COMPLETED,
-      });
-      setExistingOrder(false);
-      fetchOrders();
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const onCardClick = (id: number) => {
-    setSelectedCategory(id);
-  };
 
   const handleAddItem = (item: any) => {
     setOrder((prev) => {
@@ -142,6 +134,7 @@ const OrdersComponent: React.FC = () => {
       prev.map((p) => (p.id === id ? { ...p, qty: p.qty + 1 } : p))
     );
   };
+
   const handleDecrease = (id: number) => {
     setOrder((prev) =>
       prev
@@ -150,11 +143,49 @@ const OrdersComponent: React.FC = () => {
     );
   };
 
+  const getStatusConfig = (status: OrderStatus | null) => {
+    console.log("getStatusConfig", status);
+    switch (status) {
+      case OrderStatus.AVAILABLE:
+        return {
+          bg: "bg-blue-300",
+          text: "text-white",
+          label: "Available",
+        };
+      case OrderStatus.INPROGRESS:
+        return {
+          bg: "bg-blue-100",
+          text: "text-red-700",
+          label: "In Progress",
+        };
+      case OrderStatus.BILLED:
+        return { bg: "bg-amber-100", text: "text-green-700", label: "Billed" };
+      case OrderStatus.COMPLETED:
+        return { bg: "bg-gray-100", text: "text-gray-600", label: "Completed" };
+      default:
+        return {
+          bg: "bg-[#B9E9E9]",
+          text: "text-blue-500",
+          label: "Available",
+        };
+    }
+  };
+
+  const onCardClick = (id: number) => {
+    setSelectedCategory(id);
+  };
+
+  useEffect(() => {
+    setTotal(order.reduce((sum, item) => sum + item.price * item.qty, 0));
+  }, [order]);
+
   const handlePlaceOrder = async () => {
     let orderData = {
+      blockId: selectedBlock,
+      tableId: selectedTable,
       totalAmount: total,
-      status: OrderStatus.COMPLETED,
-      type: OrderType.TAKEAWAY,
+      status: OrderStatus.INPROGRESS,
+      type: OrderType.DINEIN,
       isPaid: isPaid,
       paymentMethod: paymentMethod,
       createdBy: User.id,
@@ -166,33 +197,15 @@ const OrdersComponent: React.FC = () => {
     };
     const res = await postAxios("/orders/createorder", orderData);
     if (res) {
-      fetchOrders();
+      fetchTables();
+      setOrder([]);
       setNewOrder(false);
-    }
-  };
-
-  const handleSearch = () => {
-    fetchOrders();
-  };
-  const updateSaveAndPrint = async () => {
-    try {
-      await postAxios("/orders/updateorder", {
-        orderId: existingOrderData.orderId,
-        isPaid: existingOrderData.isPaid,
-        paymentMode: existingOrderData.paymentMethod,
-        modifiedBy: User.id,
-        status: OrderStatus.COMPLETED,
-      });
-      setExistingOrder(false);
-      fetchOrders();
-    } catch (err) {
-      console.error(err);
     }
   };
 
   const handleGetOrderDetails = async (orderId: number) => {
     const res: any = await postAxios("/orders/getorderdetails", { orderId });
-    const rawItems = res.data[0]; // array of items
+    const rawItems = res.data[0];
     if (rawItems.length > 0) {
       const orderSummary = {
         orderId: rawItems[0].orderid,
@@ -200,6 +213,7 @@ const OrdersComponent: React.FC = () => {
         type: rawItems[0].type,
         isPaid: rawItems[0].isPaid === 1,
         paymentMethod: rawItems[0].paymentMode,
+        status: rawItems[0].status,
         items: rawItems.map((row: any) => ({
           id: row.itemid,
           name: row.name,
@@ -208,263 +222,170 @@ const OrdersComponent: React.FC = () => {
         })),
       };
       setExistingOrder(true);
+      setOrderStatus(orderSummary.status);
+      setIsPaid(orderSummary.isPaid);
+      setPaymentMethod(orderSummary.paymentMethod);
       setExistingOrderData(orderSummary);
     }
   };
-  const handleSaveAndPrint = async () => {};
+
+  const groupedTables = tables.reduce((acc, table) => {
+    if (!acc[table.blockName]) {
+      acc[table.blockName] = [];
+    }
+    acc[table.blockName].push(table);
+    return acc;
+  }, {} as Record<string, TableData[]>);
+
+  if (loading) return <Loader />;
+
+  const handleUpdateOrder = async () => {
+    try {
+      await postAxios("/orders/updateorder", {
+        orderId: existingOrderData.orderId,
+        isPaid: isPaid,
+        paymentMode: paymentMethod,
+        modifiedBy: User.id,
+        status: orderStatus || existingOrderData.status,
+      });
+      setExistingOrder(false);
+      fetchTables();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleSaveAndPrint = () => {};
+  const updateSaveAndPrint = () => {};
+
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-bold">Orders</h2>
-        <button
-          onClick={() => setNewOrder(true)}
-          className="px-4 py-2 rounded-md bg-blue-500 text-white flex items-center gap-2 hover:bg-blue-600 cursor-pointer"
-        >
-          <FiPlus /> New Order
-        </button>
+    <div className="container mx-auto px-4 py-8 overflow-auto">
+      <div className="flex items-center justify-between mb-8">
+        <h2 className="text-3xl font-bold text-gray-800">Dining</h2>
       </div>
 
-      {/* Search Input */}
-      <div className="mb-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Order Id */}
-          <input
-            type="text"
-            placeholder="Search OrderId"
-            className="border border-gray-300 rounded-md px-3 py-2 w-full"
-            value={searchOrderId!}
-            onChange={(e) => setSearchOrderId(e.target.value)}
-          />
+      <div className="flex gap-6 h-[90vh]">
+        {/* Left Section - Blocks (80%) */}
+        <div className="w-[80%] overflow-y-auto pr-4">
+          {Object.entries(groupedTables).map(([blockName, blockTables]) => (
+            <div key={blockName} className="mb-12">
+              <h3 className="text-2xl font-bold text-gray-900 mb-6 tracking-wide">
+                {blockName}
+              </h3>
 
-          {/* From Date */}
-          <DatePicker
-            selected={fromDate}
-            onChange={(date) => setFromDate(date)}
-            dateFormat="dd/MM/yyyy"
-            className="border border-gray-300 rounded-md px-3 py-2 w-full"
-            placeholderText="From Date"
-          />
+              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
+                {blockTables.map((table) => {
+                  const isAvailable =
+                    table.orderId === null &&
+                    table.status === OrderStatus.AVAILABLE;
+                  const cfg = getStatusConfig(table.status!);
 
-          {/* To Date */}
-          <DatePicker
-            selected={toDate}
-            onChange={(date) => setToDate(date)}
-            dateFormat="dd/MM/yyyy"
-            className="border border-gray-300 rounded-md px-3 py-2 w-full"
-            placeholderText="To Date"
-          />
-
-          {/* Order Type */}
-          <select
-            className="border border-gray-300 rounded-md px-3 py-2 w-full"
-            value={orderType!}
-            onChange={(e) => setOrderType(e.target.value)}
-          >
-            <option value="">Select Order Type</option>
-            <option value="TAKEAWAY">Takeaway</option>
-            <option value="DINEIN">Dining</option>
-          </select>
-
-          {/* Order Status */}
-          <select
-            className="border border-gray-300 rounded-md px-3 py-2 w-full"
-            value={orderStatus!}
-            onChange={(e) => setOrderStatus(e.target.value)}
-          >
-            <option value="">Select Order Status</option>
-            <option value="ORDERED">Ordered</option>
-            <option value="COMPLETED">Completed</option>
-          </select>
-
-          {/* Search Button */}
-          <button
-            onClick={handleSearch}
-            className="px-4 py-2 rounded-md bg-blue-500 text-white flex items-center justify-center gap-2 hover:bg-blue-600 w-full"
-          >
-            Search
-          </button>
-        </div>
-      </div>
-
-      {/* TABLE */}
-      {isLoading ? (
-        <div className="flex justify-center items-center h-120">
-          <Loader />
-        </div>
-      ) : (
-        <div className="overflow-x-auto pb-4 px-6">
-          <div className="min-w-full inline-block align-middle">
-            <div className="overflow-hidden border rounded-lg border-gray-300">
-              <table className="table-auto min-w-full rounded-xl">
-                <thead>
-                  <tr className="bg-gray-100">
-                    <th className="p-5 text-left text-sm font-semibold text-gray-900">
-                      Id
-                    </th>
-                    <th className="p-5 text-left text-sm font-semibold text-gray-900">
-                      Date
-                    </th>
-                    <th className="p-5 text-left text-sm font-semibold text-gray-900">
-                      Time
-                    </th>
-                    <th className="p-5 text-left text-sm font-semibold text-gray-900">
-                      Total Amount
-                    </th>
-                    <th className="p-5 text-left text-sm font-semibold text-gray-900">
-                      Type
-                    </th>
-                    <th className="p-5 text-left text-sm font-semibold text-gray-900">
-                      Paid
-                    </th>
-                    <th className="p-5 text-left text-sm font-semibold text-gray-900">
-                      Status
-                    </th>
-                    <th className="p-5 text-left text-sm font-semibold text-gray-900">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-300">
-                  {orders.map((order: any) => (
-                    <tr
-                      key={order.id}
-                      className="transition-all duration-500 hover:bg-gray-50"
+                  return (
+                    <div
+                      key={`${table.blockId}-${table.tableId}`}
+                      onClick={() => {
+                        if (table.orderId) {
+                          handleGetOrderDetails(table.orderId);
+                        } else {
+                          setNewOrder(true);
+                          setSelectedBlock(table.blockId);
+                          setSelectedTable(table.tableId);
+                        }
+                      }}
+                      className="rounded-xl p-5 flex flex-col justify-between cursor-pointer border bg-white shadow hover:shadow-lg transition-all duration-300"
                     >
-                      {/* Id */}
-                      <td className="p-5 text-sm font-medium text-gray-900">
-                        {order.id}
-                      </td>
-                      {/* Date */}
-                      <td className="p-5 text-sm font-medium text-gray-900">
-                        {moment(order.date).format("DD/MM/YYYY")}
-                      </td>
-                      {/* Time */}
-                      <td className="p-5 text-sm font-medium text-gray-900">
-                        {moment(order.time, "HH:mm:ss").format("hh:mm A")}
-                      </td>
+                      {/* Header */}
+                      <div className="flex justify-center items-center mb-4">
+                        <h3 className="text-lg font-semibold text-gray-800">
+                          {table.tableName}
+                        </h3>
+                      </div>
 
-                      {/* Total */}
-                      <td className="p-5 text-sm font-medium text-gray-900">
-                        {order.totalAmount}
-                      </td>
+                      {/* Body */}
+                      {isAvailable ? (
+                        <div className="flex flex-col items-center justify-center flex-1">
+                          <div className="flex items-center justify-center h-14 w-14 rounded-full bg-green-100 mb-3">
+                            <svg
+                              className="h-7 w-7 text-green-600"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M12 4v16m8-8H4"
+                              />
+                            </svg>
+                          </div>
+                          <p className="text-sm font-semibold text-green-700">
+                            Ready for Order
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center flex-1">
+                          <p className={`text-base font-bold ${cfg.text}`}>
+                            {cfg.label}
+                          </p>
+                          {table.orderId && (
+                            <p className="text-sm text-gray-500 mt-1 font-medium">
+                              Order #{table.orderId}
+                            </p>
+                          )}
+                        </div>
+                      )}
 
-                      {/* Type */}
-                      <td className="p-5 text-sm font-medium text-gray-900">
-                        {order.type}
-                      </td>
-
-                      {/* Paid */}
-                      <td className="p-5 text-sm font-medium text-gray-900">
-                        {order.isPaid ? "Paid" : "Not Paid"}
-                      </td>
-
-                      {/* Status */}
-                      <td className="p-5 text-sm font-medium text-gray-900">
-                        {order.status}
-                      </td>
-
-                      {/* Actions */}
-                      <td className="flex p-5 gap-2">
-                        <button
-                          onClick={() => handleGetOrderDetails(order.id)}
-                          className="p-2 rounded-full bg-white transition-all duration-200 hover:bg-blue-500 cursor-pointer"
-                        >
-                          <HiEye className="w-5 h-5 text-indigo-500 hover:text-white" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      {/* Footer */}
+                      <div className="flex justify-center items-center mt-4 text-sm">
+                        {isAvailable ? (
+                          <span className="text-gray-400 italic">
+                            Available
+                          </span>
+                        ) : (
+                          <span className="font-semibold text-red-600 text-base">
+                            ₹{table.totalAmount ?? ""}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
+          ))}
+        </div>
+
+        {/* Right Section - Most Ordered Items (20%) */}
+        <div className="w-[20%] bg-white border rounded-xl shadow p-2 overflow-y-auto">
+          <h2 className="text-xl font-bold text-gray-900 mb-6">
+            ⭐ Most Ordered Items
+          </h2>
+
+          <div className="grid grid-cols-1 gap-5">
+            {mostOrderedItems.map((item) => (
+              <div
+                key={item.id}
+                className="p-4 rounded-lg shadow-sm border bg-gray-50 hover:bg-gray-100 cursor-pointer transition"
+              >
+                <div className="relative w-full h-32 bg-gray-100 rounded-lg overflow-hidden mb-3 flex items-center justify-center">
+                  {item.image ? (
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      className="object-cover w-full h-full transition-transform duration-500 hover:scale-110"
+                    />
+                  ) : (
+                    <span className="text-gray-400 text-sm">No Image</span>
+                  )}
+                </div>
+
+                <p className="font-semibold text-gray-800">{item.name}</p>
+                <p className="text-sm text-gray-600">₹{item.price}</p>
+              </div>
+            ))}
           </div>
         </div>
-      )}
-
-      {/* PAGINATION */}
-      <div className="flex justify-between items-center mt-4 px-6">
-        <div className="text-sm text-gray-700">
-          Showing {(page - 1) * limit + 1} to{" "}
-          {Math.min(page * limit, totalCount)} of {totalCount} results
-        </div>
-
-        <nav className="inline-flex shadow-sm" aria-label="Pagination">
-          {/* Previous */}
-          <button
-            disabled={page === 1}
-            onClick={() => setPage((prev) => prev - 1)}
-            className={`px-3 py-2 border text-sm font-medium rounded-l-md ${
-              page === 1
-                ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                : "bg-white hover:bg-gray-50"
-            }`}
-          >
-            Previous
-          </button>
-
-          {/* Page Numbers */}
-          {(() => {
-            const pages: (number | string)[] = [];
-            const showRange = 2; // how many pages around current
-
-            if (totalPages <= 7) {
-              // show all if small
-              for (let i = 1; i <= totalPages; i++) pages.push(i);
-            } else {
-              pages.push(1); // first page
-
-              if (page > showRange + 2) pages.push("..."); // left dots
-
-              for (
-                let i = Math.max(2, page - showRange);
-                i <= Math.min(totalPages - 1, page + showRange);
-                i++
-              ) {
-                pages.push(i);
-              }
-
-              if (page < totalPages - (showRange + 1)) pages.push("..."); // right dots
-
-              pages.push(totalPages); // last page
-            }
-
-            return pages.map((p, i) =>
-              p === "..." ? (
-                <span
-                  key={i}
-                  className="px-3 py-2 border-t border-b text-sm text-gray-400"
-                >
-                  ...
-                </span>
-              ) : (
-                <button
-                  key={i}
-                  onClick={() => setPage(p as number)}
-                  className={`px-3 py-2 border-t border-b text-sm font-medium ${
-                    page === p
-                      ? "bg-blue-500 text-white"
-                      : "bg-white hover:bg-gray-50"
-                  }`}
-                >
-                  {p}
-                </button>
-              )
-            );
-          })()}
-
-          {/* Next */}
-          <button
-            disabled={page === totalPages}
-            onClick={() => setPage((prev) => prev + 1)}
-            className={`px-3 py-2 border text-sm font-medium rounded-r-md ${
-              page === totalPages
-                ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                : "bg-white hover:bg-gray-50"
-            }`}
-          >
-            Next
-          </button>
-        </nav>
       </div>
 
       {newOrder && (
@@ -510,7 +431,7 @@ const OrdersComponent: React.FC = () => {
                     {filteredItems.map((item) => (
                       <div
                         key={item.id}
-                        className={`p-4 rounded-xl shadow bg-gradient-to-br cursor-pointer hover:scale-105 transition transform hover:shadow-md bg-gray-100`}
+                        className={`p-4 rounded-xl shadow bg-gradient-to-br cursor-pointer hover:scale-105 transition transform hover:shadow-md bg-gray-100 h-60 `}
                         onClick={() => handleAddItem(item)}
                       >
                         <div className="relative w-full h-32 bg-gradient-to-br rounded-t-3xl overflow-hidden flex items-center justify-center">
@@ -601,13 +522,13 @@ const OrdersComponent: React.FC = () => {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white w-[95%] h-[90%] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-gray-200">
             {/* Header */}
-            <div className="flex justify-between items-center p-5 border-b bg-gradient-to-r from-blue-500 to-blue-600">
-              <h1 className="text-2xl text-white font-bold flex items-center gap-2">
+            <div className="flex justify-between items-center p-5 border-b bg-gradient-to-r bg-gray-200">
+              <h1 className="text-2xl text-gray-800 font-bold flex items-center gap-2">
                 🛒 View Order
               </h1>
               <button
                 onClick={() => setExistingOrder(false)}
-                className="text-white hover:text-gray-200 text-2xl"
+                className="text-gray-800 hover:text-gray-600 text-2xl"
               >
                 ✕
               </button>
@@ -774,5 +695,4 @@ const OrdersComponent: React.FC = () => {
     </div>
   );
 };
-
-export default OrdersComponent;
+export default Dining;

@@ -214,7 +214,7 @@ const Items: React.FC = () => {
           <h2 className="text-xl font-bold">Items</h2>
           <button
             onClick={() => setAddForm(true)}
-            className="px-4 py-2 rounded-md bg-orange-700 text-white flex items-center gap-2 hover:bg-orange-600 cursor-pointer"
+            className="px-4 py-2 rounded-md bg-blue-700 text-white flex items-center gap-2 hover:bg-blue-600 cursor-pointer"
           >
             <FiPlus /> Add Item
           </button>
@@ -244,7 +244,7 @@ const Items: React.FC = () => {
           </div>
           <button
             onClick={handleSearch}
-            className="px-4 py-2 rounded-md bg-orange-700 text-white flex items-center gap-2 hover:bg-orange-600 cursor-pointer"
+            className="px-4 py-2 rounded-md bg-blue-700 text-white flex items-center gap-2 hover:bg-blue-600 cursor-pointer"
           >
             Search
           </button>
@@ -307,7 +307,7 @@ const Items: React.FC = () => {
                     ● Active
                   </span>
                 ) : (
-                  <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-red-100 text-red-600">
+                  <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-red-100 text-blue-600">
                     ● Inactive
                   </span>
                 )}
@@ -316,9 +316,9 @@ const Items: React.FC = () => {
                   {/* Edit */}
                   <button
                     onClick={() => handleEdit(item.id)}
-                    className="p-2.5 rounded-full bg-orange-100 hover:bg-orange-500 transition-all shadow-sm"
+                    className="p-2.5 rounded-full bg-blue-400 hover:bg-blue-500 transition-all shadow-sm"
                   >
-                    <HiPencilAlt className="w-4 h-4 text-orange-600 group-hover:text-white" />
+                    <HiPencilAlt className="w-4 h-4 text-white group-hover:text-white" />
                   </button>
                   {/* Delete */}
                   <button
@@ -326,9 +326,9 @@ const Items: React.FC = () => {
                       setSelectedId(item.id);
                       setShowConfirm(true);
                     }}
-                    className="p-2.5 rounded-full bg-red-100 hover:bg-red-500 transition-all shadow-sm"
+                    className="p-2.5 rounded-full bg-blue-400 hover:bg-blue-500 transition-all shadow-sm"
                   >
-                    <HiTrash className="w-4 h-4 text-red-600 group-hover:text-white" />
+                    <HiTrash className="w-4 h-4 text-white group-hover:text-white" />
                   </button>
                 </div>
               </div>

@@ -23,6 +23,7 @@ import Items from "./pages/Items/Items";
 import ExpenseItems from "./pages/ExpenseItems/ExpenseItems";
 import Expenses from "./pages/Expenses/Expenses";
 import PoInventory from "./pages/POInventory/PoInventory";
+import Dining from "./pages/Dining/Dining";
 
 type JwtPayload = {
   id: number | string;
@@ -81,10 +82,19 @@ function App() {
             path="/"
             element={
               <MenuLayout>
+                <Dining />
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/dashboard"
+            element={
+              <MenuLayout>
                 <Dashboard />
               </MenuLayout>
             }
           />
+
           <Route
             path="/user-roles"
             element={
