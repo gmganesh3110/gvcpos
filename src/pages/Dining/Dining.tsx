@@ -1,26 +1,31 @@
 import { useEffect, useState } from "react";
 import { OrderStatus } from "../../constants/OrderStatus";
 import { OrderType } from "../../constants/OrderTypes";
-import { postAxios } from "../../services/AxiosService";
+import { getAxios, postAxios } from "../../services/AxiosService";
 import Loader from "../../components/Loader";
 import { useSelector } from "react-redux";
 import { PaymentMode } from "../../constants/Paymodes";
 
-interface TableData {
-  blockId: number;
+// Interface
+interface BlockTableData {
+  id: number;
   blockName: string;
-  tableId: number;
-  tableName: string;
-  orderId: number | null;
-  status: OrderStatus | null;
-  type: OrderType | null;
-  totalAmount?: number;
-  guests?: number;
-  elapsedTime?: string;
+  tables: {
+    id: number;
+    name: string;
+    capacity: number;
+    status: OrderStatus | null;
+    orders: {
+      id: number;
+      totalAmount: number;
+    }[];
+    totalAmount?: number; // optional if backend sends this
+    blockId?: number; // useful for frontend selection
+  }[];
 }
 
 const Dining = () => {
-  const [tables, setTables] = useState<TableData[]>([]);
+  const [tables, setTables] = useState<BlockTableData[]>([]);
   const [loading, setLoading] = useState(true);
   const [newOrder, setNewOrder] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
@@ -51,23 +56,11 @@ const Dining = () => {
   const fetchTables = async () => {
     try {
       setLoading(true);
-      const response: any = await postAxios(
+      const response: any = await getAxios(
         "/orders/getblocksandtableswithorders"
       );
       const data = response.data;
-
-      const transformedTables = data[0].map((table: TableData) => ({
-        ...table,
-        totalAmount: table.totalAmount,
-        guests: table.orderId ? Math.floor(Math.random() * 6) + 1 : 0,
-        elapsedTime: table.orderId
-          ? `${Math.floor(Math.random() * 30)}:${Math.floor(Math.random() * 60)
-              .toString()
-              .padStart(2, "0")}`
-          : null,
-      }));
-
-      setTables(transformedTables);
+      setTables(data);
     } catch (error) {
       console.error("Error fetching tables:", error);
     } finally {
@@ -77,12 +70,12 @@ const Dining = () => {
 
   const fetchCategories = async () => {
     try {
-      const response: any = await postAxios("/categories/getall", {
+      const response: any = await getAxios("/categories/getall", {
         categoryId: selectedCategory,
         start: 0,
         limit: 50,
       });
-      const data = response.data[0];
+      const data = response.data.data;
       setCategories(data);
     } catch (error) {
       console.error("Error fetching categories:", error);
@@ -96,12 +89,13 @@ const Dining = () => {
   const fetchFilteredItems = async () => {
     try {
       setItemsLoading(true);
-      const response: any = await postAxios("/items/getall", {
+      const response: any = await getAxios("/items/getall", {
         categoryId: selectedCategory,
         start: 0,
         limit: 50,
       });
-      const data: any = response.data[0];
+
+      const data: any = response.data.data;
       if (!selectedCategory) {
         setMostOrderedItems(data);
       }
@@ -144,7 +138,6 @@ const Dining = () => {
   };
 
   const getStatusConfig = (status: OrderStatus | null) => {
-    console.log("getStatusConfig", status);
     switch (status) {
       case OrderStatus.AVAILABLE:
         return {
@@ -181,8 +174,8 @@ const Dining = () => {
 
   const handlePlaceOrder = async () => {
     let orderData = {
-      blockId: selectedBlock,
-      tableId: selectedTable,
+      block: selectedBlock,
+      table: selectedTable,
       totalAmount: total,
       status: OrderStatus.INPROGRESS,
       type: OrderType.DINEIN,
@@ -205,39 +198,13 @@ const Dining = () => {
 
   const handleGetOrderDetails = async (orderId: number) => {
     const res: any = await postAxios("/orders/getorderdetails", { orderId });
-    const rawItems = res.data[0];
-    if (rawItems.length > 0) {
-      const orderSummary = {
-        orderId: rawItems[0].orderid,
-        total: Number(rawItems[0].totalAmount),
-        type: rawItems[0].type,
-        isPaid: rawItems[0].isPaid === 1,
-        paymentMethod: rawItems[0].paymentMode,
-        status: rawItems[0].status,
-        items: rawItems.map((row: any) => ({
-          id: row.itemid,
-          name: row.name,
-          price: Number(row.price),
-          qty: row.quantity,
-        })),
-      };
-      setExistingOrder(true);
-      setOrderStatus(orderSummary.status);
-      setIsPaid(orderSummary.isPaid);
-      setPaymentMethod(orderSummary.paymentMethod);
-      setExistingOrderData(orderSummary);
-    }
+    setExistingOrder(true);
+    debugger;
+    setOrderStatus(res.data.status);
+    setIsPaid(res.data.isPaid);
+    setPaymentMethod(res.data.paymentMethod);
+    setExistingOrderData(res.data);
   };
-
-  const groupedTables = tables.reduce((acc, table) => {
-    if (!acc[table.blockName]) {
-      acc[table.blockName] = [];
-    }
-    acc[table.blockName].push(table);
-    return acc;
-  }, {} as Record<string, TableData[]>);
-
-  if (loading) return <Loader />;
 
   const handleUpdateOrder = async () => {
     try {
@@ -266,125 +233,133 @@ const Dining = () => {
 
       <div className="flex gap-6 h-[90vh]">
         {/* Left Section - Blocks (80%) */}
-        <div className="w-[80%] overflow-y-auto pr-4">
-          {Object.entries(groupedTables).map(([blockName, blockTables]) => (
-            <div key={blockName} className="mb-12">
-              <h3 className="text-2xl font-bold text-gray-900 mb-6 tracking-wide">
-                {blockName}
-              </h3>
+        {loading ? (
+          <Loader />
+        ) : (
+          <div className="w-[80%] overflow-y-auto pr-4">
+            {tables.map((block: BlockTableData) => (
+              <div key={block.id} className="mb-12">
+                <h3 className="text-2xl font-bold text-gray-900 mb-6 tracking-wide">
+                  {block.blockName}
+                </h3>
 
-              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
-                {blockTables.map((table) => {
-                  const isAvailable =
-                    table.orderId === null &&
-                    table.status === OrderStatus.AVAILABLE;
-                  const cfg = getStatusConfig(table.status!);
+                <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
+                  {block.tables.map((table) => {
+                    const isAvailable =
+                      table.orders.length === 0 &&
+                      table.status === OrderStatus.AVAILABLE;
 
-                  return (
-                    <div
-                      key={`${table.blockId}-${table.tableId}`}
-                      onClick={() => {
-                        if (table.orderId) {
-                          handleGetOrderDetails(table.orderId);
-                        } else {
-                          setNewOrder(true);
-                          setSelectedBlock(table.blockId);
-                          setSelectedTable(table.tableId);
-                        }
-                      }}
-                      className="rounded-xl p-5 flex flex-col justify-between cursor-pointer border bg-white shadow hover:shadow-lg transition-all duration-300"
-                    >
-                      {/* Header */}
-                      <div className="flex justify-center items-center mb-4">
-                        <h3 className="text-lg font-semibold text-gray-800">
-                          {table.tableName}
-                        </h3>
-                      </div>
+                    const cfg = getStatusConfig(table.status!);
 
-                      {/* Body */}
-                      {isAvailable ? (
-                        <div className="flex flex-col items-center justify-center flex-1">
-                          <div className="flex items-center justify-center h-14 w-14 rounded-full bg-green-100 mb-3">
-                            <svg
-                              className="h-7 w-7 text-green-600"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="2"
-                                d="M12 4v16m8-8H4"
-                              />
-                            </svg>
-                          </div>
-                          <p className="text-sm font-semibold text-green-700">
-                            Ready for Order
-                          </p>
+                    return (
+                      <div
+                        key={table.id}
+                        onClick={() => {
+                          if (table.orders.length > 0) {
+                            handleGetOrderDetails(table.orders[0].id);
+                          } else {
+                            setNewOrder(true);
+                            setSelectedBlock(block.id);
+                            setSelectedTable(table.id);
+                          }
+                        }}
+                        className="rounded-xl p-5 flex flex-col justify-between cursor-pointer border bg-white shadow hover:shadow-lg transition-all duration-300"
+                      >
+                        {/* Header */}
+                        <div className="flex justify-center items-center mb-4">
+                          <h3 className="text-lg font-semibold text-gray-800">
+                            {table.name}
+                          </h3>
                         </div>
-                      ) : (
-                        <div className="flex flex-col items-center justify-center flex-1">
-                          <p className={`text-base font-bold ${cfg.text}`}>
-                            {cfg.label}
-                          </p>
-                          {table.orderId && (
-                            <p className="text-sm text-gray-500 mt-1 font-medium">
-                              Order #{table.orderId}
+
+                        {/* Body */}
+                        {isAvailable ? (
+                          <div className="flex flex-col items-center justify-center flex-1">
+                            <div className="flex items-center justify-center h-14 w-14 rounded-full bg-green-100 mb-3">
+                              <svg
+                                className="h-7 w-7 text-green-600"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="2"
+                                  d="M12 4v16m8-8H4"
+                                />
+                              </svg>
+                            </div>
+                            <p className="text-sm font-semibold text-green-700">
+                              Ready for Order
                             </p>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center flex-1">
+                            <p className={`text-base font-bold ${cfg.text}`}>
+                              {cfg.label}
+                            </p>
+                            {table.orders.length > 0 && (
+                              <p className="text-sm text-gray-500 mt-1 font-medium">
+                                Order #{table.orders[0].id}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Footer */}
+                        <div className="flex justify-center items-center mt-4 text-sm">
+                          {isAvailable ? (
+                            <span className="text-gray-400 italic">
+                              Available
+                            </span>
+                          ) : (
+                            <span className="font-semibold text-red-600 text-base">
+                              ₹{table?.orders?.[0]?.totalAmount ?? ""}
+                            </span>
                           )}
                         </div>
-                      )}
-
-                      {/* Footer */}
-                      <div className="flex justify-center items-center mt-4 text-sm">
-                        {isAvailable ? (
-                          <span className="text-gray-400 italic">
-                            Available
-                          </span>
-                        ) : (
-                          <span className="font-semibold text-red-600 text-base">
-                            ₹{table.totalAmount ?? ""}
-                          </span>
-                        )}
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
         {/* Right Section - Most Ordered Items (20%) */}
         <div className="w-[20%] bg-white border rounded-xl shadow p-2 overflow-y-auto">
           <h2 className="text-xl font-bold text-gray-900 mb-6">
             ⭐ Most Ordered Items
           </h2>
+          {itemsLoading ? (
+            <Loader />
+          ) : (
+            <div className="grid grid-cols-1 gap-5">
+              {mostOrderedItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="p-4 rounded-lg shadow-sm border bg-gray-50 hover:bg-gray-100 cursor-pointer transition"
+                >
+                  <div className="relative w-full h-32 bg-gray-100 rounded-lg overflow-hidden mb-3 flex items-center justify-center">
+                    {item.image ? (
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        className="object-cover w-full h-full transition-transform duration-500 hover:scale-110"
+                      />
+                    ) : (
+                      <span className="text-gray-400 text-sm">No Image</span>
+                    )}
+                  </div>
 
-          <div className="grid grid-cols-1 gap-5">
-            {mostOrderedItems.map((item) => (
-              <div
-                key={item.id}
-                className="p-4 rounded-lg shadow-sm border bg-gray-50 hover:bg-gray-100 cursor-pointer transition"
-              >
-                <div className="relative w-full h-32 bg-gray-100 rounded-lg overflow-hidden mb-3 flex items-center justify-center">
-                  {item.image ? (
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      className="object-cover w-full h-full transition-transform duration-500 hover:scale-110"
-                    />
-                  ) : (
-                    <span className="text-gray-400 text-sm">No Image</span>
-                  )}
+                  <p className="font-semibold text-gray-800">{item.name}</p>
+                  <p className="text-sm text-gray-600">₹{item.price}</p>
                 </div>
-
-                <p className="font-semibold text-gray-800">{item.name}</p>
-                <p className="text-sm text-gray-600">₹{item.price}</p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -589,14 +564,14 @@ const Dining = () => {
 
                   {/* Order Items */}
                   <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-                    {existingOrderData.items.map((item: any) => (
+                    {existingOrderData.orderitems.map((item: any) => (
                       <div
                         key={item.id}
                         className="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm hover:shadow-md border"
                       >
                         <div>
-                          <p className="font-medium">{item.name}</p>
-                          <p className="text-sm text-gray-500">₹{item.price}</p>
+                          <p className="font-medium">{item.item.name}</p>
+                          <p className="text-sm text-gray-500">₹{item.item.price}</p>
                         </div>
                         <div className="flex items-center gap-2">
                           <button

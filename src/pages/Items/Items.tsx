@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { postAxios } from "../../services/AxiosService";
+import { getAxios, postAxios, putAxios } from "../../services/AxiosService";
 import { HiPencilAlt, HiTrash } from "react-icons/hi";
 import { FiPlus } from "react-icons/fi";
 import Loader from "../../components/Loader";
@@ -11,11 +11,21 @@ interface Item {
   description: string;
   price: number;
   available: boolean;
-  categoryId: number;
+  category: {
+    id: number;
+    category: string;
+  };
+  image: any;
   type: string;
-  createdBy: string;
+  createdBy: {
+    id: number;
+    firstName: string;
+  };
   createdAt: string;
-  updatedBy: string;
+  updatedBy: {
+    id: number;
+    firstName: string;
+  };
   updatedAt: string;
   activeStatus: number;
 }
@@ -25,7 +35,7 @@ interface Category {
   category: string;
 }
 
-const limit = 5;
+const limit = 4;
 
 const Items: React.FC = () => {
   const [page, setPage] = useState<number>(1);
@@ -55,7 +65,7 @@ const Items: React.FC = () => {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [image, setImage] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
-  const [editImage, setEditImage] = useState<File | null>(null);
+  const [editImage, setEditImage] = useState<File | string | null>(null);
   const [editPreview, setEditPreview] = useState<string | null>(null);
 
   const User = useSelector((state: any) => state.auth.user);
@@ -69,14 +79,14 @@ const Items: React.FC = () => {
   const getAllItems = async () => {
     try {
       setIsLoading(true);
-      const res: any = await postAxios("/items/getall", {
+      const res: any = await getAxios("/items/getall", {
         status: searchStatus || undefined,
         name: searchName,
         start: (page - 1) * limit,
         limit,
       });
-      setItemData(res.data[0]);
-      setTotalCount(res.data[1][0].tot);
+      setItemData(res.data.data);
+      setTotalCount(res.data.total);
       setIsLoading(false);
     } catch (err) {
       console.log(err);
@@ -86,12 +96,12 @@ const Items: React.FC = () => {
 
   const fetchCategories = async () => {
     try {
-      const res: any = await postAxios("/categories/getall", {
+      const res: any = await getAxios("/categories/getall", {
         activeStatus: 1,
         start: 0,
         limit: 50,
       });
-      setCategories(res.data[0]);
+      setCategories(res.data.data);
     } catch (err) {
       console.log(err);
     }
@@ -102,17 +112,16 @@ const Items: React.FC = () => {
     try {
       setEditForm(true);
       setIsLoading(true);
-      const res: any = await postAxios("/items/getone", { id });
-      const item = res.data[0][0];
-      setEditName(item.name);
-      setEditDescription(item.description);
-      setEditPrice(item.price);
-      setEditAvailable(item.available);
-      setEditCategoryId(item.categoryId);
-      setEditType(item.type);
-      setEditStatus(item.activeStatus);
-      setEditImage(item.image);
-      setEditPreview(item.image);
+      const res: any = await getAxios("/items/getone/" + id);
+      setEditName(res.data.name);
+      setEditDescription(res.data.description);
+      setEditPrice(res.data.price);
+      setEditAvailable(res.data.available);
+      setEditCategoryId(res.data.category.id);
+      setEditType(res.data.type);
+      setEditStatus(res.data.activeStatus);
+      setEditImage(res.data.image);
+      setEditPreview(res.data.image);
       setIsLoading(false);
     } catch (err) {
       setIsLoading(false);
@@ -145,9 +154,21 @@ const Items: React.FC = () => {
 
   const handleUpdateItem = async () => {
     if (!editName) return;
-    const base64Image = await fileToBase64(editImage!);
-    await postAxios("/items/update", {
-      id: editId,
+
+    let imageData: string | undefined;
+
+    if (editImage) {
+      if (editImage instanceof File) {
+        imageData = await fileToBase64(editImage);
+      } else if (
+        typeof editImage === "string" &&
+        editImage?.startsWith("data:")
+      ) {
+        imageData = editImage;
+      }
+    }
+
+    await putAxios("/items/update/" + editId, {
       name: editName,
       description: editDescription,
       price: editPrice,
@@ -156,12 +177,14 @@ const Items: React.FC = () => {
       type: editType,
       activeStatus: editStatus,
       updatedBy: User.id,
-      image: base64Image,
+      image: imageData,
     });
+
     setEditForm(false);
     getAllItems();
     setEditId(0);
   };
+
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -177,7 +200,7 @@ const Items: React.FC = () => {
     formData.append("description", description);
     formData.append("price", price.toString());
     formData.append("available", available ? "1" : "0");
-    formData.append("categoryId", categoryId.toString());
+    formData.append("category", categoryId.toString());
     formData.append("type", type);
     formData.append("activeStatus", "1");
     formData.append("createdBy", User.id.toString());
@@ -257,68 +280,64 @@ const Items: React.FC = () => {
           <Loader />
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-8 p-8">
-          {itemData.map((item: any) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 p-6">
+          {itemData.map((item: Item) => (
             <div
               key={item.id}
-              className="bg-white/80 backdrop-blur-md shadow-xl rounded-3xl border border-gray-100 hover:shadow-2xl transition-all duration-500 flex flex-col group"
+              className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col"
             >
-              {/* Image Preview */}
-              <div className="relative w-full h-64 bg-gradient-to-br from-gray-100 to-gray-50 rounded-t-3xl overflow-hidden flex items-center justify-center">
+              {/* Image */}
+              <div className="relative w-full h-48 bg-gray-100 rounded-t-xl flex items-center justify-center overflow-hidden">
                 {item.image ? (
                   <img
                     src={item.image}
                     alt={item.name}
-                    className="object-cover w-full h-full transform group-hover:scale-110 transition-transform duration-700"
+                    className="object-cover w-full h-full"
                   />
                 ) : (
                   <span className="text-gray-400 text-sm">No Image</span>
                 )}
 
-                {/* Badge on image */}
-                <span className="absolute top-3 right-3 bg-gradient-to-r from-purple-500 to-indigo-500 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-md">
+                {/* ID Badge */}
+                <span className="absolute top-3 right-3 bg-blue-600 text-white text-xs font-semibold px-2 py-0.5 rounded-md shadow">
                   #{item.id}
                 </span>
               </div>
 
-              {/* Card Body */}
-              <div className="p-5 flex-1 flex flex-col gap-3">
-                <h3 className="text-lg font-bold text-gray-900  group-hover:text-indigo-600 transition-colors">
+              {/* Body */}
+              <div className="p-4 flex-1 flex flex-col gap-2">
+                <h3 className="text-base font-semibold text-gray-800">
                   {item.name}
                 </h3>
 
-                <div className="flex justify-between items-center">
-                  <p className="text-xl font-extrabold bg-gradient-to-r from-green-500 to-emerald-600 text-transparent bg-clip-text">
-                    ₹{item?.price}
-                  </p>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs px-3 py-1 rounded-full bg-gradient-to-r from-pink-100 to-purple-100 text-purple-700 font-medium shadow-sm">
-                    {categories.find((c) => c.id === item.categoryId)
-                      ?.category || "-"}
-                  </span>
-                </div>
+                <p className="text-lg font-bold text-blue-600">
+                  ₹{item?.price}
+                </p>
+
+                <span className="inline-block text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100">
+                  {item?.category?.category}
+                </span>
               </div>
 
               {/* Footer */}
-              <div className="flex justify-between items-center px-5 py-4 border-t bg-gradient-to-r from-gray-50 to-gray-100 rounded-b-3xl">
+              <div className="flex justify-between items-center px-4 py-3 border-t bg-gray-50 rounded-b-xl">
                 {item.activeStatus == 1 ? (
-                  <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-green-100 text-green-700">
+                  <span className="text-xs font-medium px-2 py-0.5 rounded bg-green-50 text-green-700 border border-green-200">
                     ● Active
                   </span>
                 ) : (
-                  <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-red-100 text-blue-600">
+                  <span className="text-xs font-medium px-2 py-0.5 rounded bg-red-50 text-red-600 border border-red-200">
                     ● Inactive
                   </span>
                 )}
 
-                <div className="flex gap-3">
+                <div className="flex gap-2">
                   {/* Edit */}
                   <button
                     onClick={() => handleEdit(item.id)}
-                    className="p-2.5 rounded-full bg-blue-400 hover:bg-blue-500 transition-all shadow-sm"
+                    className="p-2 rounded-md bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm"
                   >
-                    <HiPencilAlt className="w-4 h-4 text-white group-hover:text-white" />
+                    <HiPencilAlt className="w-4 h-4 text-white" />
                   </button>
                   {/* Delete */}
                   <button
@@ -326,9 +345,9 @@ const Items: React.FC = () => {
                       setSelectedId(item.id);
                       setShowConfirm(true);
                     }}
-                    className="p-2.5 rounded-full bg-blue-400 hover:bg-blue-500 transition-all shadow-sm"
+                    className="p-2 rounded-md bg-red-500 hover:bg-red-600 transition-colors shadow-sm"
                   >
-                    <HiTrash className="w-4 h-4 text-white group-hover:text-white" />
+                    <HiTrash className="w-4 h-4 text-white" />
                   </button>
                 </div>
               </div>
@@ -336,6 +355,7 @@ const Items: React.FC = () => {
           ))}
         </div>
       )}
+
       {/* PAGINATION */}
       <div className="flex justify-between items-center mt-4 px-6">
         <div className="text-sm text-gray-700">
@@ -397,7 +417,7 @@ const Items: React.FC = () => {
                   onClick={() => setPage(p as number)}
                   className={`px-3 py-2 border-t border-b text-sm font-medium ${
                     page === p
-                      ? "bg-orange-500 text-white"
+                      ? "bg-blue-500 text-white"
                       : "bg-white hover:bg-gray-50"
                   }`}
                 >
@@ -450,7 +470,7 @@ const Items: React.FC = () => {
                   setShowConfirm(false);
                   setSelectedId(null);
                 }}
-                className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700"
+                className="px-4 py-2 rounded-md bg-green-600 text-white hover:bg-green-700"
               >
                 Delete
               </button>
@@ -587,7 +607,7 @@ const Items: React.FC = () => {
                       }}
                       className="block w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 
                            file:rounded-lg file:border-0 file:text-sm file:font-semibold 
-                           file:bg-orange-500 file:text-white hover:file:bg-orange-600"
+                           file:bg-blue-500 file:text-white hover:file:bg-blue-600"
                     />
 
                     {/* Preview */}
@@ -616,7 +636,7 @@ const Items: React.FC = () => {
                 <button
                   type="submit"
                   onClick={handleAddItem}
-                  className="px-6 py-2.5 rounded-lg bg-orange-500 text-white font-medium hover:bg-orange-600 transition cursor-pointer"
+                  className="px-6 py-2.5 rounded-lg bg-blue-500 text-white font-medium hover:bg-blue-600 transition cursor-pointer"
                 >
                   Submit
                 </button>
@@ -626,7 +646,8 @@ const Items: React.FC = () => {
         </div>
       )}
 
-      {editForm && (
+      {editForm && isLoading && <Loader />}
+      {editForm && !isLoading && (
         <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/40">
           <div className="bg-white rounded-2xl shadow-xl w-[90%] max-h-[95%] overflow-y-auto">
             {/* Header */}
@@ -755,7 +776,7 @@ const Items: React.FC = () => {
                       }}
                       className="block w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 
                            file:rounded-lg file:border-0 file:text-sm file:font-semibold 
-                           file:bg-orange-500 file:text-white hover:file:bg-orange-600"
+                           file:bg-blue-500 file:text-white hover:file:bg-blue-600"
                     />
 
                     {/* Preview */}
@@ -784,7 +805,7 @@ const Items: React.FC = () => {
                 <button
                   type="submit"
                   onClick={handleUpdateItem}
-                  className="px-6 py-2.5 rounded-lg bg-orange-500 text-white font-medium hover:bg-orange-600 transition cursor-pointer"
+                  className="px-6 py-2.5 rounded-lg bg-blue-500 text-white font-medium hover:bg-blue-600 transition cursor-pointer"
                 >
                   Submit
                 </button>

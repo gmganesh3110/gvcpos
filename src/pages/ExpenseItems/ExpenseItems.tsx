@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { postAxios } from "../../services/AxiosService";
+import { getAxios, postAxios } from "../../services/AxiosService";
 import { HiPencilAlt, HiTrash } from "react-icons/hi";
 import { FiPlus } from "react-icons/fi";
 import Loader from "../../components/Loader";
@@ -44,14 +44,14 @@ const ExpenseItems: React.FC = () => {
   const getAllExpenseItems = async () => {
     try {
       setIsLoading(true);
-      const res: any = await postAxios("/expenseitems/getall", {
+      const res: any = await getAxios("/expenseitems/getall", {
         status: searchStatus || undefined,
         expenseItem: searchExpense,
         start: (page - 1) * limit,
         limit,
       });
-      setExpenseData(res.data[0]);
-      setTotalCount(res.data[1][0].tot);
+      setExpenseData(res.data.data);
+      setTotalCount(res.data.total);
       setIsLoading(false);
     } catch (err) {
       console.log(err);

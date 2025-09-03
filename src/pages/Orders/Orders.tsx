@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { postAxios } from "../../services/AxiosService";
+import { getAxios, postAxios } from "../../services/AxiosService";
 import { useSelector } from "react-redux";
 import { PaymentMode } from "../../constants/Paymodes";
 import { OrderStatus } from "../../constants/OrderStatus";
@@ -44,12 +44,12 @@ const OrdersComponent: React.FC = () => {
   }, [order]);
   const fetchCategories = async () => {
     try {
-      const response: any = await postAxios("/categories/getall", {
+      const response: any = await getAxios("/categories/getall", {
         categoryId: selectedCategory,
         start: 0,
         limit: 50,
       });
-      const data = response.data[0];
+      const data = response.data.data;
       setCategories(data);
     } catch (error) {
       console.error("Error fetching categories:", error);
@@ -62,12 +62,12 @@ const OrdersComponent: React.FC = () => {
   const fetchFilteredItems = async () => {
     setItemsLoading(true);
     try {
-      const response: any = await postAxios("/items/getall", {
+      const response: any = await getAxios("/items/getall", {
         categoryId: selectedCategory,
         start: 0,
         limit: 50,
       });
-      const data: any = response.data[0];
+      const data: any = response.data.data;
       setItems(data);
     } catch (error) {
       console.error("Error fetching filtered items:", error);
@@ -82,7 +82,7 @@ const OrdersComponent: React.FC = () => {
   const fetchOrders = async () => {
     setIsLoading(true);
     try {
-      const response: any = await postAxios("/orders/getallorders", {
+      const response: any = await getAxios("/orders/getallorders", {
         orderId: searchOrderId || 0,
         fromDate: fromDate ? moment(fromDate).format("YYYY-MM-DD") : null,
         toDate: toDate ? moment(toDate).format("YYYY-MM-DD") : null,
@@ -91,9 +91,9 @@ const OrdersComponent: React.FC = () => {
         start: (page - 1) * limit,
         limit: limit,
       });
-      const data = response.data[0];
+      const data = response.data.data;
       setOrders(data);
-      setTotalCount(response.data[1][0].tot);
+      setTotalCount(response.data.total);
     } catch (error) {
       console.error("Error fetching orders:", error);
     } finally {
@@ -160,7 +160,7 @@ const OrdersComponent: React.FC = () => {
       createdBy: User.id,
       items: order.map((item) => ({
         id: item.id,
-        quantity: item.qty,
+        quantity: item.quantity,
         price: item.price,
       })),
     };
@@ -192,24 +192,9 @@ const OrdersComponent: React.FC = () => {
 
   const handleGetOrderDetails = async (orderId: number) => {
     const res: any = await postAxios("/orders/getorderdetails", { orderId });
-    const rawItems = res.data[0]; // array of items
-    if (rawItems.length > 0) {
-      const orderSummary = {
-        orderId: rawItems[0].orderid,
-        total: Number(rawItems[0].totalAmount),
-        type: rawItems[0].type,
-        isPaid: rawItems[0].isPaid === 1,
-        paymentMethod: rawItems[0].paymentMode,
-        items: rawItems.map((row: any) => ({
-          id: row.itemid,
-          name: row.name,
-          price: Number(row.price),
-          qty: row.quantity,
-        })),
-      };
-      setExistingOrder(true);
-      setExistingOrderData(orderSummary);
-    }
+
+    setExistingOrder(true);
+    setExistingOrderData(res.data);
   };
   const handleSaveAndPrint = async () => {};
   return (
@@ -668,28 +653,28 @@ const OrdersComponent: React.FC = () => {
 
                   {/* Order Items */}
                   <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-                    {existingOrderData.items.map((item: any) => (
+                    {existingOrderData.orderitems.map((item: any) => (
                       <div
-                        key={item.id}
+                        key={item.item.id}
                         className="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm hover:shadow-md border"
                       >
                         <div>
-                          <p className="font-medium">{item.name}</p>
-                          <p className="text-sm text-gray-500">₹{item.price}</p>
+                          <p className="font-medium">{item.item.name}</p>
+                          <p className="text-sm text-gray-500">₹{item.item.price}</p>
                         </div>
                         <div className="flex items-center gap-2">
                           <button
                             className="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition"
-                            onClick={() => handleDecrease(item.id)}
+                            onClick={() => handleDecrease(item.item.id)}
                           >
                             -
                           </button>
                           <span className="min-w-[24px] text-center">
-                            {item.qty}
+                            {item.quantity}
                           </span>
                           <button
                             className="px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition"
-                            onClick={() => handleIncrease(item.id)}
+                            onClick={() => handleIncrease(item.item.id)}
                           >
                             +
                           </button>

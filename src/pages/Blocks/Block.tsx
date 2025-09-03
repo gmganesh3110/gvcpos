@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { postAxios } from "../../services/AxiosService";
+import { getAxios, postAxios, putAxios } from "../../services/AxiosService";
 import { HiPencilAlt, HiTrash } from "react-icons/hi";
 import { FiPlus } from "react-icons/fi";
 import Loader from "../../components/Loader";
@@ -9,7 +9,11 @@ interface Block {
   id: number;
   blockName: string;
   description: string;
-  createdBy: string;
+  createdBy: {
+    id: number;
+    firstName: string;
+    lastName: string;
+  };
   activeStatus: number;
 }
 
@@ -44,14 +48,14 @@ const BlockPage: React.FC = () => {
   const getAllBlocks = async () => {
     try {
       setIsLoading(true);
-      const res: any = await postAxios("/blocks/getall", {
+      const res: any = await getAxios("/blocks/getall", {
         status: searchStatus || undefined,
         blockName: searchBlock,
         start: (page - 1) * limit,
         limit,
       });
-      setBlockData(res.data[0]);
-      setTotalCount(res.data[1][0].tot);
+      setBlockData(res.data.data);
+      setTotalCount(res.data.total);
       setIsLoading(false);
     } catch (err) {
       console.log(err);
@@ -64,10 +68,10 @@ const BlockPage: React.FC = () => {
     try {
       setEditForm(true);
       setIsLoading(true);
-      const res: any = await postAxios("/blocks/getone", { id });
-      setEditBlockName(res.data[0][0].blockName);
-      setEditDescription(res.data[0][0].description);
-      setEditStatus(res.data[0][0].activeStatus);
+      const res: any = await getAxios("/blocks/getone/" + id);
+      setEditBlockName(res.data.blockName);
+      setEditDescription(res.data.description);
+      setEditStatus(res.data.activeStatus);
       setIsLoading(false);
     } catch (err) {
       setIsLoading(false);
@@ -98,8 +102,7 @@ const BlockPage: React.FC = () => {
   const handleUpdateBlock = async () => {
     if (!editBlockName) return;
 
-    await postAxios("/blocks/update", {
-      id: editId,
+    await putAxios("/blocks/update/" + editId, {
       blockName: editBlockName,
       description: editDescription,
       activeStatus: editStatus,
@@ -141,7 +144,7 @@ const BlockPage: React.FC = () => {
           <h2 className="text-xl font-bold">Blocks/Tables</h2>
           <button
             onClick={() => setAddForm(true)}
-            className="px-4 py-2 rounded-md bg-orange-700 text-white flex items-center gap-2 hover:bg-orange-600 cursor-pointer"
+            className="px-4 py-2 rounded-md bg-blue-700 text-white flex items-center gap-2 hover:bg-blue-600 cursor-pointer"
           >
             <FiPlus /> Add Block/Table
           </button>
@@ -171,7 +174,7 @@ const BlockPage: React.FC = () => {
           </div>
           <button
             onClick={handleSearch}
-            className="px-4 py-2 rounded-md bg-orange-700 text-white flex items-center gap-2 hover:bg-orange-600 cursor-pointer"
+            className="px-4 py-2 rounded-md bg-blue-700 text-white flex items-center gap-2 hover:bg-blue-600 cursor-pointer"
           >
             Search
           </button>
@@ -226,7 +229,7 @@ const BlockPage: React.FC = () => {
                         {block.description}
                       </td>
                       <td className="p-5 text-sm font-medium text-gray-900">
-                        {block.createdBy}
+                        {block.createdBy.firstName}
                       </td>
                       <td className="p-5 text-sm font-medium text-gray-900">
                         <div className="py-1.5 px-2.5 bg-emerald-50 rounded-full flex justify-center w-20 items-center gap-1">
@@ -253,7 +256,7 @@ const BlockPage: React.FC = () => {
                         {/* Edit */}
                         <button
                           onClick={() => handleEdit(block.id)}
-                          className="p-2 rounded-full bg-white transition-all duration-200 hover:bg-orange-500 cursor-pointer"
+                          className="p-2 rounded-full bg-white transition-all duration-200 hover:bg-blue-500 cursor-pointer"
                         >
                           <HiPencilAlt className="w-5 h-5 text-indigo-500 hover:text-white" />
                         </button>
@@ -263,9 +266,9 @@ const BlockPage: React.FC = () => {
                             setSelectedId(block.id);
                             setShowConfirm(true);
                           }}
-                          className="p-2 rounded-full bg-white transition-all duration-200 hover:bg-red-600 cursor-pointer"
+                          className="p-2 rounded-full bg-white transition-all duration-200 hover:bg-blue-600 cursor-pointer"
                         >
-                          <HiTrash className="w-5 h-5 text-red-600 hover:text-white" />
+                          <HiTrash className="w-5 h-5 text-blue-600 hover:text-white" />
                         </button>
                       </td>
                     </tr>
@@ -337,7 +340,7 @@ const BlockPage: React.FC = () => {
                   onClick={() => setPage(p as number)}
                   className={`px-3 py-2 border-t border-b text-sm font-medium ${
                     page === p
-                      ? "bg-orange-500 text-white"
+                      ? "bg-blue-500 text-white"
                       : "bg-white hover:bg-gray-50"
                   }`}
                 >
@@ -391,7 +394,7 @@ const BlockPage: React.FC = () => {
                   setShowConfirm(false);
                   setSelectedId(null);
                 }}
-                className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700"
+                className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700"
               >
                 Delete
               </button>
@@ -463,7 +466,7 @@ const BlockPage: React.FC = () => {
                 <button
                   type="submit"
                   onClick={handleAddBlock}
-                  className="px-6 py-2.5 rounded-lg bg-orange-500 text-white font-medium hover:bg-indigo-700 transition cursor-pointer"
+                  className="px-6 py-2.5 rounded-lg bg-blue-500 text-white font-medium hover:bg-blue-700 transition cursor-pointer"
                 >
                   Submit
                 </button>
@@ -536,7 +539,7 @@ const BlockPage: React.FC = () => {
                 <button
                   onClick={handleUpdateBlock}
                   type="submit"
-                  className="px-6 py-2.5 rounded-lg bg-orange-500 text-white font-medium hover:bg-indigo-700 transition cursor-pointer"
+                  className="px-6 py-2.5 rounded-lg bg-blue-500 text-white font-medium hover:bg-blue-700 transition cursor-pointer"
                 >
                   Update
                 </button>

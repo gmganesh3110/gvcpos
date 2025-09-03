@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { postAxios } from "../../services/AxiosService";
+import { deleteAxios, getAxios, postAxios, putAxios } from "../../services/AxiosService";
 import { HiPencilAlt, HiTrash } from "react-icons/hi";
 import { FiPlus } from "react-icons/fi";
 import Loader from "../../components/Loader";
@@ -10,9 +10,15 @@ interface Category {
   category: string;
   description: string;
   type: string;
-  createdBy: string;
+  createdBy: {
+    id: number;
+    firstName: string;
+  };
   createdAt: string;
-  updatedBy: string;
+  updatedBy: {
+    id: number;
+    firstName: string;
+  };
   updatedAt: string;
   activeStatus: number;
 }
@@ -51,15 +57,15 @@ const CategoryManagement: React.FC = () => {
   const getAllCategories = async () => {
     try {
       setIsLoading(true);
-      const res: any = await postAxios("/categories/getall", {
+      const res: any = await getAxios("/categories/getall", {
         status: searchStatus || undefined,
         category: searchCategory,
         type: searchType,
         start: (page - 1) * limit,
         limit,
       });
-      setCategoryData(res.data[0]);
-      setTotalCount(res.data[1][0].tot);
+      setCategoryData(res.data.data);
+      setTotalCount(res.data.total);
       setIsLoading(false);
     } catch (err) {
       console.log(err);
@@ -72,11 +78,11 @@ const CategoryManagement: React.FC = () => {
     try {
       setEditForm(true);
       setIsLoading(true);
-      const res: any = await postAxios("/categories/getone", { id });
-      setEditCategory(res.data[0][0].category);
-      setEditDescription(res.data[0][0].description);
-      setEditType(res.data[0][0].type);
-      setEditStatus(res.data[0][0].activeStatus);
+      const res: any = await getAxios("/categories/getone/"+id);
+      setEditCategory(res.data.category);
+      setEditDescription(res.data.description);
+      setEditType(res.data.type);
+      setEditStatus(res.data.activeStatus);
       setIsLoading(false);
     } catch (err) {
       setIsLoading(false);
@@ -85,7 +91,7 @@ const CategoryManagement: React.FC = () => {
   };
 
   const handleDelete = async (id: number) => {
-    await postAxios("/categories/delete", {
+    await deleteAxios("/categories/delete/"+id, {
       id,
       updatedBy: User.id,
     });
@@ -108,8 +114,7 @@ const CategoryManagement: React.FC = () => {
   const handleUpdateCategory = async () => {
     if (!editCategory) return;
 
-    await postAxios("/categories/update", {
-      id: editId,
+    await putAxios("/categories/update/"+editId, {
       category: editCategory,
       description: editDescription,
       type: editType,
@@ -154,7 +159,7 @@ const CategoryManagement: React.FC = () => {
           <h2 className="text-xl font-bold">Category Management</h2>
           <button
             onClick={() => setAddForm(true)}
-            className="px-4 py-2 rounded-md bg-orange-700 text-white flex items-center gap-2 hover:bg-orange-600 cursor-pointer"
+            className="px-4 py-2 rounded-md bg-blue-700 text-white flex items-center gap-2 hover:bg-blue-600 cursor-pointer"
           >
             <FiPlus /> Add Category
           </button>
@@ -193,7 +198,7 @@ const CategoryManagement: React.FC = () => {
           </div>
           <button
             onClick={handleSearch}
-            className="px-4 py-2 rounded-md bg-orange-700 text-white flex items-center gap-2 hover:bg-orange-600 cursor-pointer"
+            className="px-4 py-2 rounded-md bg-blue-700 text-white flex items-center gap-2 hover:bg-blue-600 cursor-pointer"
           >
             Search
           </button>
@@ -254,7 +259,7 @@ const CategoryManagement: React.FC = () => {
                         {cat.type}
                       </td>
                       <td className="p-5 text-sm font-medium text-gray-900">
-                        {cat.createdBy}
+                        {cat.createdBy.firstName}
                       </td>
                       <td className="p-5 text-sm font-medium text-gray-900">
                         <div className="py-1.5 px-2.5 bg-emerald-50 rounded-full flex justify-center w-20 items-center gap-1">
@@ -281,7 +286,7 @@ const CategoryManagement: React.FC = () => {
                         {/* Edit */}
                         <button
                           onClick={() => handleEdit(cat.id)}
-                          className="p-2 rounded-full bg-white transition-all duration-200 hover:bg-orange-500 cursor-pointer"
+                          className="p-2 rounded-full bg-white transition-all duration-200 hover:bg-blue-500 cursor-pointer"
                         >
                           <HiPencilAlt className="w-5 h-5 text-indigo-500 hover:text-white" />
                         </button>
@@ -291,9 +296,9 @@ const CategoryManagement: React.FC = () => {
                             setSelectedId(cat.id);
                             setShowConfirm(true);
                           }}
-                          className="p-2 rounded-full bg-white transition-all duration-200 hover:bg-red-600 cursor-pointer"
+                          className="p-2 rounded-full bg-white transition-all duration-200 hover:bg-blue-600 cursor-pointer"
                         >
-                          <HiTrash className="w-5 h-5 text-red-600 hover:text-white" />
+                          <HiTrash className="w-5 h-5 text-blue-600 hover:text-white" />
                         </button>
                       </td>
                     </tr>
@@ -365,7 +370,7 @@ const CategoryManagement: React.FC = () => {
                   onClick={() => setPage(p as number)}
                   className={`px-3 py-2 border-t border-b text-sm font-medium ${
                     page === p
-                      ? "bg-orange-500 text-white"
+                      ? "bg-blue-500 text-white"
                       : "bg-white hover:bg-gray-50"
                   }`}
                 >
@@ -419,7 +424,7 @@ const CategoryManagement: React.FC = () => {
                   setShowConfirm(false);
                   setSelectedId(null);
                 }}
-                className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700"
+                className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700"
               >
                 Delete
               </button>
@@ -503,7 +508,7 @@ const CategoryManagement: React.FC = () => {
                 <button
                   type="submit"
                   onClick={handleAddCategory}
-                  className="px-6 py-2.5 rounded-lg bg-orange-500 text-white font-medium hover:bg-indigo-700 transition cursor-pointer"
+                  className="px-6 py-2.5 rounded-lg bg-blue-500 text-white font-medium hover:bg-indigo-700 transition cursor-pointer"
                 >
                   Submit
                 </button>
@@ -588,7 +593,7 @@ const CategoryManagement: React.FC = () => {
                 <button
                   onClick={handleUpdateCategory}
                   type="submit"
-                  className="px-6 py-2.5 rounded-lg bg-orange-500 text-white font-medium hover:bg-indigo-700 transition cursor-pointer"
+                  className="px-6 py-2.5 rounded-lg bg-blue-500 text-white font-medium hover:bg-indigo-700 transition cursor-pointer"
                 >
                   Update
                 </button>

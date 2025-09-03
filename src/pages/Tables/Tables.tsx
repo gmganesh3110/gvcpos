@@ -1,5 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { postAxios } from "../../services/AxiosService";
+import {
+  deleteAxios,
+  getAxios,
+  postAxios,
+  putAxios,
+} from "../../services/AxiosService";
 import { HiPencilAlt, HiTrash } from "react-icons/hi";
 import { FiPlus } from "react-icons/fi";
 import Loader from "../../components/Loader";
@@ -11,8 +16,16 @@ interface TableData {
   description: string;
   capacity: number;
   blockName: string; // from join
-  createdBy: string;
+  createdBy: {
+    id: number;
+    firstName: string;
+    lastName: string;
+  };
   activeStatus: number;
+  block: {
+    id: number;
+    blockName: string;
+  };
 }
 
 interface Block {
@@ -27,7 +40,7 @@ const Tables: React.FC = () => {
   const [tableData, setTableData] = useState<TableData[]>([]);
   const [totalCount, setTotalCount] = useState<number>(0);
   const [blockList, setBlockList] = useState<Block[]>([]);
-  const [searchBlockId, setSearchBlockId] = useState<number >(0);
+  const [searchBlockId, setSearchBlockId] = useState<number>(0);
   const [searchStatus, setSearchStatus] = useState<string>("");
   const [searchTable, setSearchTable] = useState<string>("");
 
@@ -60,12 +73,11 @@ const Tables: React.FC = () => {
 
   const getBlockList = async () => {
     try {
-      const res: any = await postAxios("/blocks/getall", {
-        status: 1,
+      const res: any = await getAxios("/blocks/getall", {
         start: 0,
         limit: 10,
       });
-      setBlockList(res.data[0]);
+      setBlockList(res.data.data);
     } catch (err) {
       console.error(err);
     }
@@ -74,15 +86,15 @@ const Tables: React.FC = () => {
   const getAllTables = async () => {
     try {
       setIsLoading(true);
-      const res: any = await postAxios("/tables/getall", {
+      const res: any = await getAxios("/tables/getall", {
         tableName: searchTable,
         blockId: searchBlockId,
         status: searchStatus,
         start: (page - 1) * limit,
         limit,
       });
-      setTableData(res.data[0]);
-      setTotalCount(res.data[1][0].tot);
+      setTableData(res.data.data);
+      setTotalCount(res.data.total);
     } catch (err) {
       console.error(err);
     } finally {
@@ -95,13 +107,12 @@ const Tables: React.FC = () => {
     try {
       setEditForm(true);
       setIsLoading(true);
-      const res: any = await postAxios("/tables/getone", { id });
-      const t = res.data[0][0];
-      setFormBlockId(t.blockId);
-      setTableName(t.tableName);
-      setDescription(t.description);
-      setCapacity(t.capacity);
-      setStatus(t.activeStatus);
+      const res: any = await getAxios("/tables/getone/" + id);
+      setFormBlockId(res.data.block.id);
+      setTableName(res.data.tableName);
+      setDescription(res.data.description);
+      setCapacity(res.data.capacity);
+      setStatus(res.data.activeStatus);
     } catch (err) {
       console.error(err);
     } finally {
@@ -110,7 +121,7 @@ const Tables: React.FC = () => {
   };
 
   const handleDelete = async (id: number) => {
-    await postAxios("/tables/delete", {
+    await deleteAxios("/tables/delete", {
       id,
       updatedBy: User.id,
     });
@@ -137,8 +148,7 @@ const Tables: React.FC = () => {
 
   const handleUpdateTable = async () => {
     if (!formBlockId || !tableName) return;
-    await postAxios("/tables/update", {
-      id: editId,
+    await putAxios("/tables/update/" + editId, {
       blockId: formBlockId,
       tableName,
       description,
@@ -168,7 +178,7 @@ const Tables: React.FC = () => {
         <h2 className="text-xl font-bold">Tables</h2>
         <button
           onClick={() => setAddForm(true)}
-          className="px-4 py-2 rounded-md bg-orange-700 text-white flex items-center gap-2 hover:bg-orange-600"
+          className="px-4 py-2 rounded-md bg-blue-700 text-white flex items-center gap-2 hover:bg-blue-600"
         >
           <FiPlus /> Add Table
         </button>
@@ -212,8 +222,8 @@ const Tables: React.FC = () => {
         </select>
 
         <button
-          onClick={() => setPage(1)}
-          className="px-4 py-2 rounded-md bg-orange-700 text-white hover:bg-orange-600"
+          onClick={() => getAllTables()}
+          className="px-4 py-2 rounded-md bg-blue-700 text-white hover:bg-blue-600"
         >
           Search
         </button>
@@ -235,36 +245,38 @@ const Tables: React.FC = () => {
                 <th className="p-3">Capacity</th>
                 <th className="p-3">Description</th>
                 <th className="p-3">Status</th>
-                <th className="p-3">Actions</th>
+                <th className="p-3 text-center">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {tableData.map((t) => (
+              {tableData.map((t: TableData) => (
                 <tr key={t.id} className="border-t">
-                  <td className="p-3">{t.id}</td>
-                  <td className="p-3">{t.blockName}</td>
-                  <td className="p-3">{t.tableName}</td>
-                  <td className="p-3">{t.capacity}</td>
-                  <td className="p-3">{t.description}</td>
-                  <td className="p-3">
+                  <td className="p-3 text-center">{t.id}</td>
+                  <td className="p-3 text-center">{t.block.blockName}</td>
+                  <td className="p-3 text-center">{t.tableName}</td>
+                  <td className="p-3 text-center">{t.capacity}</td>
+                  <td className="p-3 text-center">{t.description}</td>
+                  <td className="p-3 text-center">
                     {t.activeStatus === 1 ? "Active" : "Inactive"}
                   </td>
-                  <td className="p-3 flex gap-2">
-                    <button
-                      onClick={() => handleEdit(t.id)}
-                      className="p-2 bg-white rounded hover:bg-orange-500"
-                    >
-                      <HiPencilAlt className="text-indigo-500" />
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSelectedId(t.id);
-                        setShowConfirm(true);
-                      }}
-                      className="p-2 bg-white rounded hover:bg-red-600"
-                    >
-                      <HiTrash className="text-red-600" />
-                    </button>
+                  <td className="p-3 flex gap-2 text-center">
+                    <div className="text-center">
+                      <button
+                        onClick={() => handleEdit(t.id)}
+                        className="p-2 bg-white rounded hover:bg-blue-500"
+                      >
+                        <HiPencilAlt className="text-indigo-500" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedId(t.id);
+                          setShowConfirm(true);
+                        }}
+                        className="p-2 bg-white rounded hover:bg-blue-600"
+                      >
+                        <HiTrash className="text-blue-600" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -334,7 +346,7 @@ const Tables: React.FC = () => {
                   onClick={() => setPage(p as number)}
                   className={`px-3 py-2 border-t border-b text-sm font-medium ${
                     page === p
-                      ? "bg-orange-500 text-white"
+                      ? "bg-blue-500 text-white"
                       : "bg-white hover:bg-gray-50"
                   }`}
                 >
@@ -424,7 +436,7 @@ const Tables: React.FC = () => {
               </button>
               <button
                 onClick={addForm ? handleAddTable : handleUpdateTable}
-                className="px-4 py-2 bg-orange-500 text-white rounded"
+                className="px-4 py-2 bg-blue-500 text-white rounded"
               >
                 {addForm ? "Add" : "Update"}
               </button>
@@ -450,7 +462,7 @@ const Tables: React.FC = () => {
                   if (selectedId) handleDelete(selectedId);
                   setShowConfirm(false);
                 }}
-                className="px-4 py-2 bg-red-600 text-white rounded"
+                className="px-4 py-2 bg-blue-600 text-white rounded"
               >
                 Delete
               </button>
