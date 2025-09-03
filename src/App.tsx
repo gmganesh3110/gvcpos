@@ -24,6 +24,7 @@ import ExpenseItems from "./pages/ExpenseItems/ExpenseItems";
 import Expenses from "./pages/Expenses/Expenses";
 import PoInventory from "./pages/POInventory/PoInventory";
 import Dining from "./pages/Dining/Dining";
+import Register from "./pages/Register/Register";
 
 type JwtPayload = {
   id: number | string;
@@ -76,6 +77,7 @@ function App() {
       <Routes>
         <Route element={<PublicOnly />}>
           <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
         </Route>
         <Route element={<RequireAuth />}>
           <Route

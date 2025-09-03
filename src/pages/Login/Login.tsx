@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useDispatch } from "react-redux";
 import { setCredentials } from "../../store/authSlice";
 import { loginAxios } from "../../services/AxiosService";
+import { Link } from "react-router-dom"; // Import Link
 
 type FieldType = {
   email: string;
@@ -10,7 +11,10 @@ type FieldType = {
 
 const Login: React.FC = () => {
   const dispatch = useDispatch();
-  const [formData, setFormData] = useState<FieldType>({ email: "", password: "" });
+  const [formData, setFormData] = useState<FieldType>({
+    email: "",
+    password: "",
+  });
   const [error, setError] = useState("");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -40,11 +44,16 @@ const Login: React.FC = () => {
       <div className="w-full max-w-md bg-white p-8 shadow-md rounded-lg">
         <h2 className="text-2xl font-semibold text-center mb-6">Login</h2>
 
-        {error && <p className="text-red-600 mb-4 text-sm text-center">{error}</p>}
+        {error && (
+          <p className="text-red-600 mb-4 text-sm text-center">{error}</p>
+        )}
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Email
             </label>
             <input
@@ -59,7 +68,10 @@ const Login: React.FC = () => {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Password
             </label>
             <input
@@ -79,6 +91,17 @@ const Login: React.FC = () => {
           >
             Submit
           </button>
+
+          <p className="mt-4 text-center">New User? Please register</p>
+          {/* Link to registration page */}
+          <div className="flex justify-center mt-2">
+            <Link
+              to="/register"
+              className="inline-block bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-md transition duration-200"
+            >
+              Register
+            </Link>
+          </div>
         </form>
       </div>
     </div>
