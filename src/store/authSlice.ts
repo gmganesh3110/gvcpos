@@ -8,6 +8,7 @@ type User = {
   lastName: string;
   mobileNumber: string;
   speciality: string;
+  isRegistered: boolean;
 };
 
 interface AuthState {

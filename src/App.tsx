@@ -19,12 +19,13 @@ import Block from "./pages/Blocks/Block";
 import Dashboard from "./pages/Dashboard/Dashboard";
 import Tables from "./pages/Tables/Tables";
 import Category from "./pages/Category/Category";
-import Items from "./pages/Items/Items";
+import Items from "./pages/Items/Items";      
 import ExpenseItems from "./pages/ExpenseItems/ExpenseItems";
 import Expenses from "./pages/Expenses/Expenses";
 import PoInventory from "./pages/POInventory/PoInventory";
 import Dining from "./pages/Dining/Dining";
 import Register from "./pages/Register/Register";
+import RestaurantRegister from "./pages/RestaurantRegister/RestaurantRegister";
 
 type JwtPayload = {
   id: number | string;
@@ -33,13 +34,13 @@ type JwtPayload = {
   lastName: string;
   mobileNumber: string;
   speciality: string;
+  isRegistered: boolean;
   exp?: number;
 };
 
 function App() {
   const dispatch = useAppDispatch();
   const { token, user } = useAppSelector((s: any) => s.auth);
-
   useEffect(() => {
     const storedToken = localStorage.getItem("token");
     if (!storedToken) return;
@@ -62,10 +63,12 @@ function App() {
               lastName: payload.lastName,
               mobileNumber: payload.mobileNumber,
               speciality: payload.speciality,
+              isRegistered: payload.isRegistered,
             },
           })
         );
       }
+
     } catch (e) {
       console.error("Invalid token in localStorage:", e);
       dispatch(logout());
@@ -86,6 +89,12 @@ function App() {
               <MenuLayout>
                 <Dining />
               </MenuLayout>
+            }
+          />
+          <Route
+            path="/restaurantregister"
+            element={
+                <RestaurantRegister />
             }
           />
           <Route
