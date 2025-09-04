@@ -19,24 +19,15 @@ import Block from "./pages/Blocks/Block";
 import Dashboard from "./pages/Dashboard/Dashboard";
 import Tables from "./pages/Tables/Tables";
 import Category from "./pages/Category/Category";
-import Items from "./pages/Items/Items";      
+import Items from "./pages/Items/Items";
 import ExpenseItems from "./pages/ExpenseItems/ExpenseItems";
 import Expenses from "./pages/Expenses/Expenses";
 import PoInventory from "./pages/POInventory/PoInventory";
 import Dining from "./pages/Dining/Dining";
 import Register from "./pages/Register/Register";
 import RestaurantRegister from "./pages/RestaurantRegister/RestaurantRegister";
-
-type JwtPayload = {
-  id: number | string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  mobileNumber: string;
-  speciality: string;
-  isRegistered: boolean;
-  exp?: number;
-};
+import Subscription from "./pages/Subscription/Subscription";
+import PaymentSuccess from "./pages/Subscription/PaymentSuccess";
 
 function App() {
   const dispatch = useAppDispatch();
@@ -46,29 +37,34 @@ function App() {
     if (!storedToken) return;
 
     try {
-      const payload = jwtDecode<JwtPayload>(storedToken);
+      const payload = jwtDecode<{ user: any; exp?: number }>(storedToken);
+
+      // Check expiry
       if (payload.exp && payload.exp * 1000 < Date.now()) {
         dispatch(logout());
         return;
       }
 
+      // Update Redux only if user not already set
       if (!user) {
         dispatch(
           setCredentials({
             token: storedToken,
             user: {
-              id: payload.id,
-              email: payload.email,
-              firstName: payload.firstName,
-              lastName: payload.lastName,
-              mobileNumber: payload.mobileNumber,
-              speciality: payload.speciality,
-              isRegistered: payload.isRegistered,
+              ...payload.user,
+              // optional: overwrite or map fields
+              id: payload.user.id,
+              email: payload.user.email,
+              firstName: payload.user.firstName,
+              lastName: payload.user.lastName,
+              mobileNumber: payload.user.mobileNumber,
+              speciality: payload.user.speciality,
+              isRegistered: payload.user.isRegistered,
+              restuarent: payload.user.restuarent,
             },
           })
         );
       }
-
     } catch (e) {
       console.error("Invalid token in localStorage:", e);
       dispatch(logout());
@@ -78,11 +74,14 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/payment-success" element={<PaymentSuccess />} />
         <Route element={<PublicOnly />}>
           <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+
         </Route>
         <Route element={<RequireAuth />}>
+          <Route path="/register" element={<Register />} />
+          <Route path="/subscription" element={<Subscription />} />
           <Route
             path="/"
             element={
@@ -91,12 +90,7 @@ function App() {
               </MenuLayout>
             }
           />
-          <Route
-            path="/restaurantregister"
-            element={
-                <RestaurantRegister />
-            }
-          />
+          <Route path="/restaurantregister" element={<RestaurantRegister />} />
           <Route
             path="/dashboard"
             element={

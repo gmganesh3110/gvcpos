@@ -9,6 +9,7 @@ type User = {
   mobileNumber: string;
   speciality: string;
   isRegistered: boolean;
+  restuarent:number;
 };
 
 interface AuthState {

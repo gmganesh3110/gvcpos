@@ -5,6 +5,7 @@ import { getAxios, postAxios } from "../../services/AxiosService";
 import Loader from "../../components/Loader";
 import { useSelector } from "react-redux";
 import { PaymentMode } from "../../constants/Paymodes";
+import { useNavigate } from "react-router-dom";
 
 // Interface
 interface BlockTableData {
@@ -44,6 +45,12 @@ const Dining = () => {
   const [mostOrderedItems, setMostOrderedItems] = useState<any[]>([]);
 
   const User = useSelector((state: any) => state.auth.user);
+   const navigate = useNavigate();
+  if (User && User.isRegistered != 1) {
+    navigate("/restaurantregister");
+  } else if (User && (!User.expiresAt || User.expiresAt < Date.now())) {
+    navigate("/subscription");
+  }
 
   const filteredItems = selectedCategory
     ? items.filter((i) => i.categoryId === selectedCategory)
@@ -199,7 +206,6 @@ const Dining = () => {
   const handleGetOrderDetails = async (orderId: number) => {
     const res: any = await postAxios("/orders/getorderdetails", { orderId });
     setExistingOrder(true);
-    debugger;
     setOrderStatus(res.data.status);
     setIsPaid(res.data.isPaid);
     setPaymentMethod(res.data.paymentMethod);
