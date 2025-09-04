@@ -63,9 +63,9 @@ const Items: React.FC = () => {
   const [editId, setEditId] = useState<number>(0);
   const [showConfirm, setShowConfirm] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [image, setImage] = useState<File | null>(null);
+  const [image, setImage] = useState<String | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
-  const [editImage, setEditImage] = useState<File | string | null>(null);
+  const [editImage, setEditImage] = useState<String | string | null>(null);
   const [editPreview, setEditPreview] = useState<string | null>(null);
 
   const User = useSelector((state: any) => state.auth.user);
@@ -154,20 +154,6 @@ const Items: React.FC = () => {
 
   const handleUpdateItem = async () => {
     if (!editName) return;
-
-    let imageData: string | undefined;
-
-    if (editImage) {
-      if (editImage instanceof File) {
-        imageData = await fileToBase64(editImage);
-      } else if (
-        typeof editImage === "string" &&
-        editImage?.startsWith("data:")
-      ) {
-        imageData = editImage;
-      }
-    }
-
     await putAxios("/items/update/" + editId, {
       name: editName,
       description: editDescription,
@@ -177,7 +163,7 @@ const Items: React.FC = () => {
       type: editType,
       activeStatus: editStatus,
       updatedBy: User.id,
-      image: imageData,
+      image: editImage,
     });
 
     setEditForm(false);
@@ -185,32 +171,20 @@ const Items: React.FC = () => {
     setEditId(0);
   };
 
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file); // convert to Base64 string
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = (error) => reject(error);
-    });
-  };
-
   const handleAddItem = async () => {
-    const formData = new FormData();
-    formData.append("name", name);
-    formData.append("description", description);
-    formData.append("price", price.toString());
-    formData.append("available", available ? "1" : "0");
-    formData.append("category", categoryId.toString());
-    formData.append("type", type);
-    formData.append("activeStatus", "1");
-    formData.append("createdBy", User.id.toString());
-    const base64Image = await fileToBase64(image!);
-    // Only append if image exists
-    if (image) {
-      formData.append("image", base64Image);
-    }
+    let obj = {
+      name,
+      description,
+      price,
+      available,
+      category: categoryId,
+      type,
+      activeStatus: 1,
+      createdBy: User.id,
+      image,
+    };
     try {
-      await postAxios("/items/add", formData);
+      await postAxios("/items/add", obj);
       setAddForm(false);
       getAllItems();
       setName("");
@@ -227,6 +201,42 @@ const Items: React.FC = () => {
   const onEditFormClose = () => {
     setEditForm(false);
     setEditId(0);
+  };
+  const handleUploadImage = async (file: File) => {
+    try {
+      if (!file) return;
+      setIsLoading(true);
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res: any = await postAxios("/s3/image", formData, {
+        "Content-Type": "multipart/form-data",
+      });
+      setImage(res.data);
+      setPreview(res.data);
+    } catch (err) {
+      console.error("Upload error:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  const handleUploadEditImage = async (file: File) => {
+    try {
+      if (!file) return;
+      setIsLoading(true);
+      const formData = new FormData();
+      formData.append("file", file);
+      const res: any = await postAxios("/s3/image", formData, {
+        "Content-Type": "multipart/form-data",
+      });
+      setEditImage(res.data);
+      setEditPreview(res.data);
+    } catch (err) {
+      console.error("Upload error:", err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -598,16 +608,14 @@ const Items: React.FC = () => {
                     <input
                       type="file"
                       accept="image/*"
-                      onChange={(e) => {
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                         if (e.target.files && e.target.files[0]) {
-                          const file = e.target.files[0];
-                          setImage(file);
-                          setPreview(URL.createObjectURL(file)); // preview
+                          handleUploadImage(e.target.files[0]);
                         }
                       }}
                       className="block w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 
-                           file:rounded-lg file:border-0 file:text-sm file:font-semibold 
-                           file:bg-blue-500 file:text-white hover:file:bg-blue-600"
+             file:rounded-lg file:border-0 file:text-sm file:font-semibold 
+             file:bg-blue-500 file:text-white hover:file:bg-blue-600"
                     />
 
                     {/* Preview */}
@@ -767,18 +775,15 @@ const Items: React.FC = () => {
                     <input
                       type="file"
                       accept="image/*"
-                      onChange={(e) => {
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                         if (e.target.files && e.target.files[0]) {
-                          const file = e.target.files[0];
-                          setEditImage(file);
-                          setEditPreview(URL.createObjectURL(file)); // preview
+                          handleUploadEditImage(e.target.files[0]);
                         }
                       }}
                       className="block w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 
-                           file:rounded-lg file:border-0 file:text-sm file:font-semibold 
-                           file:bg-blue-500 file:text-white hover:file:bg-blue-600"
+                                  file:rounded-lg file:border-0 file:text-sm file:font-semibold 
+                                  file:bg-blue-500 file:text-white hover:file:bg-blue-600"
                     />
-
                     {/* Preview */}
                     {editPreview && (
                       <div className="mt-4">

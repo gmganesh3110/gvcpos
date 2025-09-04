@@ -10,11 +10,12 @@ export const loginAxios = (url: string, payload: any) => {
   }
 };
 
-export const postAxios = (url: string, payload?: any) => {
+export const postAxios = (url: string, payload?: any,headers?:any) => {
   try {
     return axios.post(BACKEND_API_URL + url, payload, {
-      headers: {
+      headers: headers||{
         "Content-Type": "application/json",
+
       },
     });
   } catch (err) {
