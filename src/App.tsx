@@ -77,10 +77,9 @@ function App() {
         <Route path="/payment-success" element={<PaymentSuccess />} />
         <Route element={<PublicOnly />}>
           <Route path="/login" element={<Login />} />
-
+          <Route path="/register" element={<Register />} />
         </Route>
         <Route element={<RequireAuth />}>
-          <Route path="/register" element={<Register />} />
           <Route path="/subscription" element={<Subscription />} />
           <Route
             path="/"
