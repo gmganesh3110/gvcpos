@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const BACKEND_API_URL = "https://gvcbackend.onrender.com";
+const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL;
 
 export const loginAxios = (url: string, payload: any) => {
   try {

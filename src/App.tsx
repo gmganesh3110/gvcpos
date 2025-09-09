@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { jwtDecode } from "jwt-decode";
 import { useAppDispatch, useAppSelector } from "./store/hooks";
 import { setCredentials, logout } from "./store/authSlice";
+import { ToastContainer } from "react-toastify";
 
 import Login from "./pages/Login/Login";
 
@@ -193,6 +194,20 @@ function App() {
           element={<Navigate to={token ? "/dashboard" : "/login"} />}
         />
       </Routes>
+
+      <ToastContainer
+        position="top-center"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={true}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="colored"
+        toastClassName="!rounded-xl !shadow-lg !text-sm !px-4 !py-3 !bg-blue-500 !text-white"
+      />
     </BrowserRouter>
   );
 }
