@@ -1,6 +1,6 @@
 // src/App.tsx
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { jwtDecode } from "jwt-decode";
 import { useAppDispatch, useAppSelector } from "./store/hooks";
 import { setCredentials, logout } from "./store/authSlice";
@@ -33,44 +33,69 @@ import PaymentSuccess from "./pages/Subscription/PaymentSuccess";
 function App() {
   const dispatch = useAppDispatch();
   const { token, user } = useAppSelector((s: any) => s.auth);
+  const [isInitializing, setIsInitializing] = useState(true);
+
   useEffect(() => {
-    const storedToken = localStorage.getItem("token");
-    if (!storedToken) return;
-
-    try {
-      const payload = jwtDecode<{ user: any; exp?: number }>(storedToken);
-
-      // Check expiry
-      if (payload.exp && payload.exp * 1000 < Date.now()) {
-        dispatch(logout());
+    const initializeAuth = async () => {
+      const storedToken = localStorage.getItem("token");
+      
+      if (!storedToken) {
+        setIsInitializing(false);
         return;
       }
 
-      // Update Redux only if user not already set
-      if (!user) {
-        dispatch(
-          setCredentials({
-            token: storedToken,
-            user: {
-              ...payload.user,
-              // optional: overwrite or map fields
-              id: payload.user.id,
-              email: payload.user.email,
-              firstName: payload.user.firstName,
-              lastName: payload.user.lastName,
-              mobileNumber: payload.user.mobileNumber,
-              speciality: payload.user.speciality,
-              isRegistered: payload.user.isRegistered,
-              restuarent: payload.user.restuarent,
-            },
-          })
-        );
+      try {
+        const payload = jwtDecode<{ user: any; exp?: number }>(storedToken);
+
+        // Check expiry
+        if (payload.exp && payload.exp * 1000 < Date.now()) {
+          dispatch(logout());
+          setIsInitializing(false);
+          return;
+        }
+
+        // Update Redux only if user not already set
+        if (!user) {
+          dispatch(
+            setCredentials({
+              token: storedToken,
+              user: {
+                ...payload.user,
+                // optional: overwrite or map fields
+                id: payload.user.id,
+                email: payload.user.email,
+                firstName: payload.user.firstName,
+                lastName: payload.user.lastName,
+                mobileNumber: payload.user.mobileNumber,
+                speciality: payload.user.speciality,
+                isRegistered: payload.user.isRegistered,
+                restuarent: payload.user.restuarent,
+              },
+            })
+          );
+        }
+      } catch (e) {
+        console.error("Invalid token in localStorage:", e);
+        dispatch(logout());
+      } finally {
+        setIsInitializing(false);
       }
-    } catch (e) {
-      console.error("Invalid token in localStorage:", e);
-      dispatch(logout());
-    }
+    };
+
+    initializeAuth();
   }, [dispatch, user]);
+
+  // Show loading spinner while initializing auth
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <BrowserRouter>

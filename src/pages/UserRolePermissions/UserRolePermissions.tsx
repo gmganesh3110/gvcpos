@@ -68,7 +68,7 @@ const UserRolePermissions: React.FC = () => {
             menuPath: item.menuPath,
             menuIcon: item.menuIcon,
             menuSequence: item.menuSequence,
-            checked: false,
+            checked: item.permissionId?true:false,
             submenu: new Map(),
           });
         }
@@ -82,7 +82,7 @@ const UserRolePermissions: React.FC = () => {
               submenuPath: item.subMenuPath,
               submenuIcon: item.subMenuIcon,
               submenuSequence: item.subMenuSequence,
-              checked: false,
+              checked: item.permissionId?true:false,
             });
           }
         }
@@ -95,7 +95,7 @@ const UserRolePermissions: React.FC = () => {
           menuPath: menu.menuPath,
           menuIcon: menu.menuIcon,
           menuSequence: menu.menuSequence,
-          checked: false,
+          checked: menu.checked,
           submenu: Array.from(menu.submenu.values()).sort(
             (a: any, b: any) => a.submenuSequence - b.submenuSequence
           ) as SubmenuItem[],

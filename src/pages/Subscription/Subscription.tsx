@@ -15,32 +15,54 @@ const Subscription: React.FC = () => {
 
   const handleSubscribe = async () => {
     if (!plan) return alert("Please select a plan");
-    if (!user) return alert("User not found");
 
     try {
-      // 1️⃣ Call backend to generate Cashfree order
+      // 1️⃣ Call backend to generate Razorpay order
       const res: any = await postAxios("/subscription/create", {
-        createdBy: user.id,
-        planType: plan,
         amount,
-        firstName: user.firstName,
-        email: user.email,
-        phone: user.phone,
+        planType: plan,
+        userId: user.id,
         restuarent: user.restuarent,
       });
-      const paymentLink = res.data.data?.payment_link;
 
-      if (!paymentLink) {
-        alert("Payment link not generated. Try again.");
-        return;
-      }
+      const { orderId, amount: orderAmount, currency } = res.data;
 
-      // 3️⃣ Redirect user to Cashfree hosted checkout
-      setTimeout(() => {
-        window.location.href = paymentLink;
-      }, 1000);
+      // 2️⃣ Razorpay options
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+        amount: orderAmount,
+        currency,
+        name: "GVC",
+        description: `Subscription - ${plan}`,
+        order_id: res.data.orderToken,
+        handler: async function (response: any) {
+          // response contains: razorpay_payment_id, razorpay_order_id, razorpay_signature
+          console.log("Payment response:", response);
+          const verifyRes:any = await postAxios("/subscription/verify", {
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_signature: response.razorpay_signature,
+            razorpay_amount: orderAmount,
+            orderId: orderId,
+            });
+          if (verifyRes.data.success) {
+            window.location.href = "/payment-success";
+          } else {
+            window.location.href = "/payment-failed";
+          }
+        },
+        prefill: {
+          name: user.firstName + " " + user.lastName,
+          email: user.email,
+          contact: user.mobileNumber,
+        },
+        theme: { color: "#3399cc" },
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.open();
     } catch (err) {
-      console.error("Cashfree subscription error:", err);
+      console.error("Razorpay subscription error:", err);
       alert("Failed to initiate payment. Try again.");
     }
   };
