@@ -4,26 +4,21 @@ import { HiPencilAlt, HiTrash } from "react-icons/hi";
 import { FiPlus } from "react-icons/fi";
 import Loader from "../../components/Loader";
 import { useSelector } from "react-redux";
+import { toast } from "react-toastify";
 
 interface Category {
   id: number;
   category: string;
   description: string;
   type: string;
-  createdBy: {
-    id: number;
-    firstName: string;
-  };
+  createdBy: string
   createdAt: string;
-  updatedBy: {
-    id: number;
-    firstName: string;
-  };
+  updatedBy:string;
   updatedAt: string;
   activeStatus: number;
 }
 
-const limit = 5;
+const limit = 8;
 
 const CategoryManagement: React.FC = () => {
   const [page, setPage] = useState<number>(1);
@@ -61,14 +56,16 @@ const CategoryManagement: React.FC = () => {
         status: searchStatus || undefined,
         category: searchCategory,
         type: searchType,
+        restuarent: User.restuarent,
         start: (page - 1) * limit,
         limit,
       });
-      setCategoryData(res.data.data);
-      setTotalCount(res.data.total);
+      setCategoryData(res.data[0]);
+      setTotalCount(res.data[1][0].tot);
       setIsLoading(false);
     } catch (err) {
       console.log(err);
+      toast.error("Failed to fetch categories. Please try again.");
       setIsLoading(false);
     }
   };
@@ -79,23 +76,31 @@ const CategoryManagement: React.FC = () => {
       setEditForm(true);
       setIsLoading(true);
       const res: any = await getAxios("/categories/getone/"+id);
-      setEditCategory(res.data.category);
-      setEditDescription(res.data.description);
-      setEditType(res.data.type);
-      setEditStatus(res.data.activeStatus);
+      setEditCategory(res.data[0][0].category);
+      setEditDescription(res.data[0][0].description);
+      setEditType(res.data[0][0].type);
+      setEditStatus(res.data[0][0].activeStatus);
       setIsLoading(false);
     } catch (err) {
       setIsLoading(false);
       console.log(err);
+      toast.error("Failed to fetch category details. Please try again.");
     }
   };
 
   const handleDelete = async (id: number) => {
-    await deleteAxios("/categories/delete/"+id, {
-      id,
-      updatedBy: User.id,
-    });
-    getAllCategories();
+    try {
+      await deleteAxios("/categories/delete/"+id, {
+        id,
+        updatedBy: User.id,
+        restuarent: User.restuarent,
+      });
+      toast.success("Category deleted successfully!");
+      getAllCategories();
+    } catch (err) {
+      console.log(err);
+      toast.error("Failed to delete category. Please try again.");
+    }
   };
 
   const handleSearch = () => {
@@ -112,22 +117,35 @@ const CategoryManagement: React.FC = () => {
   };
 
   const handleUpdateCategory = async () => {
-    if (!editCategory) return;
+    if (!editCategory) {
+      toast.error("Category name is required!");
+      return;
+    }
 
-    await putAxios("/categories/update/"+editId, {
-      category: editCategory,
-      description: editDescription,
-      type: editType,
-      activeStatus: editStatus,
-      updatedBy: User.id,
-    });
-    setEditForm(false);
-    getAllCategories();
-    setEditId(0);
+    try {
+      await putAxios("/categories/update/"+editId, {
+        category: editCategory,
+        description: editDescription,
+        type: editType,
+        activeStatus: editStatus,
+        updatedBy: User.id,
+        restuarent: User.restuarent,
+      });
+      toast.success("Category updated successfully!");
+      setEditForm(false);
+      getAllCategories();
+      setEditId(0);
+    } catch (err) {
+      console.log(err);
+      toast.error("Failed to update category. Please try again.");
+    }
   };
 
   const handleAddCategory = async () => {
-    if (!category) return;
+    if (!category) {
+      toast.error("Category name is required!");
+      return;
+    }
     try {
       await postAxios("/categories/add", {
         category,
@@ -135,14 +153,17 @@ const CategoryManagement: React.FC = () => {
         type,
         activeStatus: status,
         createdBy: User.id,
+        restuarent: User.restuarent,
       });
+      toast.success("Category added successfully!");
       setAddForm(false);
       getAllCategories();
       setCategory("");
       setDescription("");
       setType("");
     } catch (err: any) {
-      alert(err.message);
+      console.log(err);
+      toast.error(err.message || "Failed to add category. Please try again.");
     }
   };
 
@@ -205,108 +226,90 @@ const CategoryManagement: React.FC = () => {
         </div>
       </div>
 
-      {/* TABLE */}
+      {/* GRID VIEW */}
       {isLoading ? (
         <div className="flex justify-center items-center h-120">
           <Loader />
         </div>
       ) : (
-        <div className="overflow-x-auto pb-4 px-6">
-          <div className="min-w-full inline-block align-middle">
-            <div className="overflow-hidden border rounded-lg border-gray-300">
-              <table className="table-auto min-w-full rounded-xl">
-                <thead>
-                  <tr className="bg-gray-100">
-                    <th className="p-5 text-left text-sm font-semibold text-gray-900">
-                      Id
-                    </th>
-                    <th className="p-5 text-left text-sm font-semibold text-gray-900">
-                      Category
-                    </th>
-                    <th className="p-5 text-left text-sm font-semibold text-gray-900">
-                      Description
-                    </th>
-                    <th className="p-5 text-left text-sm font-semibold text-gray-900">
-                      Type
-                    </th>
-                    <th className="p-5 text-left text-sm font-semibold text-gray-900">
-                      Created By
-                    </th>
-                    <th className="p-5 text-left text-sm font-semibold text-gray-900">
-                      Status
-                    </th>
-                    <th className="p-5 text-left text-sm font-semibold text-gray-900">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-300">
-                  {categoryData.map((cat: Category) => (
-                    <tr
-                      key={cat.id}
-                      className="transition-all duration-500 hover:bg-gray-50"
-                    >
-                      <td className="p-5 text-sm font-medium text-gray-900">
-                        {cat.id}
-                      </td>
-                      <td className="p-5 text-sm font-medium text-gray-900">
-                        {cat.category}
-                      </td>
-                      <td className="p-5 text-sm font-medium text-gray-900">
-                        {cat.description}
-                      </td>
-                      <td className="p-5 text-sm font-medium text-gray-900">
-                        {cat.type}
-                      </td>
-                      <td className="p-5 text-sm font-medium text-gray-900">
-                        {cat.createdBy.firstName}
-                      </td>
-                      <td className="p-5 text-sm font-medium text-gray-900">
-                        <div className="py-1.5 px-2.5 bg-emerald-50 rounded-full flex justify-center w-20 items-center gap-1">
-                          <svg
-                            width="5"
-                            height="6"
-                            viewBox="0 0 5 6"
-                            fill="none"
-                          >
-                            <circle cx="2.5" cy="3" r="2.5" fill="#059669" />
-                          </svg>
-                          {cat.activeStatus == 1 ? (
-                            <span className="font-medium text-xs text-green-600">
-                              Active
-                            </span>
-                          ) : (
-                            <span className="font-medium text-xs text-emerald-600">
-                              Inactive
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="flex p-5 gap-2">
-                        {/* Edit */}
-                        <button
-                          onClick={() => handleEdit(cat.id)}
-                          className="p-2 rounded-full bg-white transition-all duration-200 hover:bg-blue-500 cursor-pointer"
-                        >
-                          <HiPencilAlt className="w-5 h-5 text-indigo-500 hover:text-white" />
-                        </button>
-                        {/* Delete */}
-                        <button
-                          onClick={() => {
-                            setSelectedId(cat.id);
-                            setShowConfirm(true);
-                          }}
-                          className="p-2 rounded-full bg-white transition-all duration-200 hover:bg-blue-600 cursor-pointer"
-                        >
-                          <HiTrash className="w-5 h-5 text-blue-600 hover:text-white" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 p-6">
+          {categoryData.map((category: Category) => (
+            <div
+              key={category.id}
+              className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col"
+            >
+              {/* Header with Category Icon */}
+              <div className="relative w-full h-32 bg-gradient-to-br from-purple-50 to-indigo-100 rounded-t-xl flex items-center justify-center">
+                <div className="flex flex-col items-center">
+                  <svg className="w-12 h-12 text-purple-600 mb-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm0 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V8zm0 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1v-2z" clipRule="evenodd" />
+                  </svg>
+                  <span className="text-sm font-medium text-purple-700">Category</span>
+                </div>
+
+                {/* ID Badge */}
+                <span className="absolute top-3 right-3 bg-purple-600 text-white text-xs font-semibold px-2 py-0.5 rounded-md shadow">
+                  #{category.id}
+                </span>
+              </div>
+
+              {/* Body */}
+              <div className="p-4 flex-1 flex flex-col gap-2">
+                <h3 className="text-base font-semibold text-gray-800">
+                  {category.category}
+                </h3>
+                
+                {category.description && (
+                  <p className="text-sm text-gray-600 line-clamp-2">
+                    {category.description}
+                  </p>
+                )}
+
+                {category.type && (
+                  <span className="inline-block text-xs px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-100">
+                    {category.type}
+                  </span>
+                )}
+
+                <p className="text-xs text-gray-500">
+                  Created by: {category.createdBy}
+                </p>
+              </div>
+
+              {/* Footer */}
+              <div className="flex justify-between items-center px-4 py-3 border-t bg-gray-50 rounded-b-xl">
+                {category.activeStatus == 1 ? (
+                  <span className="text-xs font-medium px-2 py-0.5 rounded bg-green-50 text-green-700 border border-green-200">
+                    ● Active
+                  </span>
+                ) : (
+                  <span className="text-xs font-medium px-2 py-0.5 rounded bg-red-50 text-red-600 border border-red-200">
+                    ● Inactive
+                  </span>
+                )}
+
+                <div className="flex gap-2">
+                  {/* Edit */}
+                  <button
+                    onClick={() => handleEdit(category.id)}
+                    className="p-2 rounded-md bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm"
+                  >
+                    <HiPencilAlt className="w-4 h-4 text-white" />
+                  </button>
+                  {/* Delete */}
+                  <button
+                    onClick={() => {
+                      setSelectedId(category.id);
+                      setShowConfirm(true);
+                    }}
+                    className="p-2 rounded-md bg-red-500 hover:bg-red-600 transition-colors shadow-sm"
+                  >
+                    <HiTrash className="w-4 h-4 text-white" />
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
+          ))}
         </div>
       )}
       {/* PAGINATION */}

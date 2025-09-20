@@ -1,19 +1,16 @@
 import React, { useEffect, useState } from "react";
-import { getAxios, postAxios, putAxios } from "../../services/AxiosService";
+import { deleteAxios, getAxios, postAxios, putAxios } from "../../services/AxiosService";
 import { HiPencilAlt, HiTrash } from "react-icons/hi";
 import { FiPlus } from "react-icons/fi";
 import Loader from "../../components/Loader";
 import { useSelector } from "react-redux";
+import { toast } from "react-toastify";
 
 interface Block {
   id: number;
   blockName: string;
   description: string;
-  createdBy: {
-    id: number;
-    firstName: string;
-    lastName: string;
-  };
+  createdBy: string;
   activeStatus: number;
 }
 
@@ -51,14 +48,16 @@ const BlockPage: React.FC = () => {
       const res: any = await getAxios("/blocks/getall", {
         status: searchStatus || undefined,
         blockName: searchBlock,
+        restuarent: User.restuarent,
         start: (page - 1) * limit,
         limit,
       });
-      setBlockData(res.data.data);
-      setTotalCount(res.data.total);
+      setBlockData(res.data[0]);
+      setTotalCount(res.data[1][0].tot);
       setIsLoading(false);
     } catch (err) {
       console.log(err);
+      toast.error("Failed to fetch blocks. Please try again.");
       setIsLoading(false);
     }
   };
@@ -69,22 +68,33 @@ const BlockPage: React.FC = () => {
       setEditForm(true);
       setIsLoading(true);
       const res: any = await getAxios("/blocks/getone/" + id);
-      setEditBlockName(res.data.blockName);
-      setEditDescription(res.data.description);
-      setEditStatus(res.data.activeStatus);
+      setEditBlockName(res.data[0][0].blockName);
+      setEditDescription(res.data[0][0].description);
+      setEditStatus(res.data[0][0].activeStatus);
       setIsLoading(false);
     } catch (err) {
       setIsLoading(false);
       console.log(err);
+      toast.error("Failed to fetch block details. Please try again.");
     }
   };
 
   const handleDelete = async (id: number) => {
-    await postAxios("/blocks/delete", {
-      id,
-      updatedBy: User.id,
-    });
-    getAllBlocks();
+    try {
+      setIsLoading(true);
+      await deleteAxios("/blocks/delete/" + id, {
+        id,
+        updatedBy: User.id,
+        restuarent: User.restuarent,
+      });
+      toast.success("Block deleted successfully!");
+      getAllBlocks();
+    } catch (err) {
+      console.log(err);
+      toast.error("Failed to delete block. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSearch = () => {
@@ -100,34 +110,51 @@ const BlockPage: React.FC = () => {
   };
 
   const handleUpdateBlock = async () => {
-    if (!editBlockName) return;
+    if (!editBlockName) {
+      toast.error("Block name is required!");
+      return;
+    }
 
-    await putAxios("/blocks/update/" + editId, {
-      blockName: editBlockName,
-      description: editDescription,
-      activeStatus: editStatus,
-      updatedBy: User.id,
-    });
-    setEditForm(false);
-    getAllBlocks();
-    setEditId(0);
+    try {
+      await putAxios("/blocks/update/" + editId, {
+        id: editId,
+        blockName: editBlockName,
+        description: editDescription,
+        activeStatus: editStatus,
+        updatedBy: User.id,
+        restuarent: User.restuarent,
+      });
+      toast.success("Block updated successfully!");
+      setEditForm(false);
+      getAllBlocks();
+      setEditId(0);
+    } catch (err) {
+      console.log(err);
+      toast.error("Failed to update block. Please try again.");
+    }
   };
 
   const handleAddBlock = async () => {
-    if (!blockName) return;
+    if (!blockName) {
+      toast.error("Block name is required!");
+      return;
+    }
     try {
       await postAxios("/blocks/add", {
         blockName,
         description,
         activeStatus: status,
         createdBy: User.id,
+        restuarent: User.restuarent,
       });
+      toast.success("Block added successfully!");
       setAddForm(false);
       getAllBlocks();
       setBlockName("");
       setDescription("");
     } catch (err: any) {
-      alert(err.message);
+      console.log(err);
+      toast.error(err.message || "Failed to add block. Please try again.");
     }
   };
 
@@ -181,102 +208,82 @@ const BlockPage: React.FC = () => {
         </div>
       </div>
 
-      {/* TABLE */}
+      {/* GRID VIEW */}
       {isLoading ? (
         <div className="flex justify-center items-center h-120">
           <Loader />
         </div>
       ) : (
-        <div className="overflow-x-auto pb-4 px-6">
-          <div className="min-w-full inline-block align-middle">
-            <div className="overflow-hidden border rounded-lg border-gray-300">
-              <table className="table-auto min-w-full rounded-xl">
-                <thead>
-                  <tr className="bg-gray-100">
-                    <th className="p-5 text-left text-sm font-semibold text-gray-900">
-                      Id
-                    </th>
-                    <th className="p-5 text-left text-sm font-semibold text-gray-900">
-                      Block Name
-                    </th>
-                    <th className="p-5 text-left text-sm font-semibold text-gray-900">
-                      Description
-                    </th>
-                    <th className="p-5 text-left text-sm font-semibold text-gray-900">
-                      Created By
-                    </th>
-                    <th className="p-5 text-left text-sm font-semibold text-gray-900">
-                      Status
-                    </th>
-                    <th className="p-5 text-left text-sm font-semibold text-gray-900">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-300">
-                  {blockData.map((block: Block) => (
-                    <tr
-                      key={block.id}
-                      className="transition-all duration-500 hover:bg-gray-50"
-                    >
-                      <td className="p-5 text-sm font-medium text-gray-900">
-                        {block.id}
-                      </td>
-                      <td className="p-5 text-sm font-medium text-gray-900">
-                        {block.blockName}
-                      </td>
-                      <td className="p-5 text-sm font-medium text-gray-900">
-                        {block.description}
-                      </td>
-                      <td className="p-5 text-sm font-medium text-gray-900">
-                        {block.createdBy.firstName}
-                      </td>
-                      <td className="p-5 text-sm font-medium text-gray-900">
-                        <div className="py-1.5 px-2.5 bg-emerald-50 rounded-full flex justify-center w-20 items-center gap-1">
-                          <svg
-                            width="5"
-                            height="6"
-                            viewBox="0 0 5 6"
-                            fill="none"
-                          >
-                            <circle cx="2.5" cy="3" r="2.5" fill="#059669" />
-                          </svg>
-                          {block.activeStatus == 1 ? (
-                            <span className="font-medium text-xs text-green-600">
-                              Active
-                            </span>
-                          ) : (
-                            <span className="font-medium text-xs text-emerald-600">
-                              Inactive
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="flex p-5 gap-2">
-                        {/* Edit */}
-                        <button
-                          onClick={() => handleEdit(block.id)}
-                          className="p-2 rounded-full bg-white transition-all duration-200 hover:bg-blue-500 cursor-pointer"
-                        >
-                          <HiPencilAlt className="w-5 h-5 text-indigo-500 hover:text-white" />
-                        </button>
-                        {/* Delete */}
-                        <button
-                          onClick={() => {
-                            setSelectedId(block.id);
-                            setShowConfirm(true);
-                          }}
-                          className="p-2 rounded-full bg-white transition-all duration-200 hover:bg-blue-600 cursor-pointer"
-                        >
-                          <HiTrash className="w-5 h-5 text-blue-600 hover:text-white" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 p-6">
+          {blockData.map((block: Block) => (
+            <div
+              key={block.id}
+              className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col"
+            >
+              {/* Header with Icon */}
+              <div className="relative w-full h-32 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-t-xl flex items-center justify-center">
+                <div className="flex flex-col items-center">
+                  <svg className="w-12 h-12 text-blue-600 mb-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm0 4a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1V8zm8 0a1 1 0 011-1h4a1 1 0 011 1v2a1 1 0 01-1 1h-4a1 1 0 01-1-1V8zm0 4a1 1 0 011-1h4a1 1 0 011 1v2a1 1 0 01-1 1h-4a1 1 0 01-1-1v-2z" clipRule="evenodd" />
+                  </svg>
+                  <span className="text-sm font-medium text-blue-700">Block/Floor</span>
+                </div>
+
+                {/* ID Badge */}
+                <span className="absolute top-3 right-3 bg-blue-600 text-white text-xs font-semibold px-2 py-0.5 rounded-md shadow">
+                  #{block.id}
+                </span>
+              </div>
+
+              {/* Body */}
+              <div className="p-4 flex-1 flex flex-col gap-2">
+                <h3 className="text-base font-semibold text-gray-800">
+                  {block.blockName}
+                </h3>
+                
+                <p className="text-sm text-gray-600 line-clamp-2">
+                  {block.description || "No description available"}
+                </p>
+
+                <p className="text-xs text-gray-500">
+                  Created by: {block.createdBy}
+                </p>
+              </div>
+
+              {/* Footer */}
+              <div className="flex justify-between items-center px-4 py-3 border-t bg-gray-50 rounded-b-xl">
+                {block.activeStatus == 1 ? (
+                  <span className="text-xs font-medium px-2 py-0.5 rounded bg-green-50 text-green-700 border border-green-200">
+                    ● Active
+                  </span>
+                ) : (
+                  <span className="text-xs font-medium px-2 py-0.5 rounded bg-red-50 text-red-600 border border-red-200">
+                    ● Inactive
+                  </span>
+                )}
+
+                <div className="flex gap-2">
+                  {/* Edit */}
+                  <button
+                    onClick={() => handleEdit(block.id)}
+                    className="p-2 rounded-md bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm"
+                  >
+                    <HiPencilAlt className="w-4 h-4 text-white" />
+                  </button>
+                  {/* Delete */}
+                  <button
+                    onClick={() => {
+                      setSelectedId(block.id);
+                      setShowConfirm(true);
+                    }}
+                    className="p-2 rounded-md bg-red-500 hover:bg-red-600 transition-colors shadow-sm"
+                  >
+                    <HiTrash className="w-4 h-4 text-white" />
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
+          ))}
         </div>
       )}
       {/* PAGINATION */}

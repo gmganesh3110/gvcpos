@@ -4,6 +4,7 @@ import { HiPencilAlt, HiTrash } from "react-icons/hi";
 import { FiPlus } from "react-icons/fi";
 import Loader from "../../components/Loader";
 import { useSelector } from "react-redux";
+import { toast } from "react-toastify";
 
 interface Item {
   id: number;
@@ -11,21 +12,12 @@ interface Item {
   description: string;
   price: number;
   available: boolean;
-  category: {
-    id: number;
-    category: string;
-  };
+  category: string;
   image: any;
   type: string;
-  createdBy: {
-    id: number;
-    firstName: string;
-  };
+  createdBy: string;
   createdAt: string;
-  updatedBy: {
-    id: number;
-    firstName: string;
-  };
+  updatedBy: string;
   updatedAt: string;
   activeStatus: number;
 }
@@ -35,7 +27,7 @@ interface Category {
   category: string;
 }
 
-const limit = 4;
+const limit = 5;
 
 const Items: React.FC = () => {
   const [page, setPage] = useState<number>(1);
@@ -44,6 +36,7 @@ const Items: React.FC = () => {
   const [totalCount, setTotalCount] = useState<number>(0);
   const [searchName, setSearchName] = useState<string>("");
   const [searchStatus, setSearchStatus] = useState<string>("");
+  const [searchCategory, setSearchCategory] = useState<string>("");
   const [addForm, setAddForm] = useState<boolean>(false);
   const [editForm, setEditForm] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -73,8 +66,11 @@ const Items: React.FC = () => {
 
   useEffect(() => {
     getAllItems();
+  }, [page, searchName, searchStatus, searchCategory]);
+
+  useEffect(() => {
     fetchCategories();
-  }, [page, searchName, searchStatus]);
+  }, []);
 
   const getAllItems = async () => {
     try {
@@ -82,28 +78,30 @@ const Items: React.FC = () => {
       const res: any = await getAxios("/items/getall", {
         status: searchStatus || undefined,
         name: searchName,
+        category: searchCategory || undefined,
+        restuarent: User.restuarent,
         start: (page - 1) * limit,
         limit,
       });
-      setItemData(res.data.data);
-      setTotalCount(res.data.total);
+      setItemData(res.data[0]);
+      setTotalCount(res.data[1][0].tot);
       setIsLoading(false);
     } catch (err) {
       console.log(err);
+      toast.error("Failed to fetch items. Please try again.");
       setIsLoading(false);
     }
   };
 
   const fetchCategories = async () => {
     try {
-      const res: any = await getAxios("/categories/getall", {
-        activeStatus: 1,
-        start: 0,
-        limit: 50,
+      const res: any = await getAxios("/items/categories/getall", {
+        restuarent: User.restuarent,
       });
-      setCategories(res.data.data);
+      setCategories(res.data[0]);
     } catch (err) {
       console.log(err);
+      toast.error("Failed to fetch categories. Please try again.");
     }
   };
 
@@ -113,33 +111,48 @@ const Items: React.FC = () => {
       setEditForm(true);
       setIsLoading(true);
       const res: any = await getAxios("/items/getone/" + id);
-      setEditName(res.data.name);
-      setEditDescription(res.data.description);
-      setEditPrice(res.data.price);
-      setEditAvailable(res.data.available);
-      setEditCategoryId(res.data.category.id);
-      setEditType(res.data.type);
-      setEditStatus(res.data.activeStatus);
-      setEditImage(res.data.image);
-      setEditPreview(res.data.image);
+      setEditName(res.data[0][0].name);
+      setEditDescription(res.data[0][0].description);
+      setEditPrice(res.data[0][0].price);
+      setEditAvailable(res.data[0][0].available);
+      setEditCategoryId(res.data[0][0].category.id);
+      setEditType(res.data[0][0].type);
+      setEditStatus(res.data[0][0].activeStatus);
+      setEditImage(res.data[0][0].image);
+      setEditPreview(res.data[0][0].image);
       setIsLoading(false);
     } catch (err) {
       setIsLoading(false);
       console.log(err);
+      toast.error("Failed to fetch item details. Please try again.");
     }
   };
 
   const handleDelete = async (id: number) => {
-    await postAxios("/items/delete", {
-      id,
-      updatedBy: User.id,
-    });
-    getAllItems();
+    try {
+      await postAxios("/items/delete", {
+        id,
+        updatedBy: User.id,
+        restuarent: User.restuarent,
+      });
+      toast.success("Item deleted successfully!");
+      getAllItems();
+    } catch (err) {
+      console.log(err);
+      toast.error("Failed to delete item. Please try again.");
+    }
   };
 
   const handleSearch = () => {
     setPage(1);
     getAllItems();
+  };
+
+  const clearFilters = () => {
+    setSearchName("");
+    setSearchStatus("");
+    setSearchCategory("");
+    setPage(1);
   };
 
   const onAddFormClose = () => {
@@ -150,28 +163,54 @@ const Items: React.FC = () => {
     setAvailable(true);
     setCategoryId(0);
     setType("");
+    setImage(null);
+    setPreview(null);
+    setEditImage(null);
+    setEditPreview(null);
   };
 
   const handleUpdateItem = async () => {
-    if (!editName) return;
-    await putAxios("/items/update/" + editId, {
-      name: editName,
-      description: editDescription,
-      price: editPrice,
-      available: editAvailable,
-      categoryId: editCategoryId,
-      type: editType,
-      activeStatus: editStatus,
-      updatedBy: User.id,
-      image: editImage,
-    });
-
-    setEditForm(false);
-    getAllItems();
-    setEditId(0);
+    if (!editName) {
+      toast.error("Item name is required!");
+      return;
+    }
+    try {
+      await putAxios("/items/update/" + editId, {
+        name: editName,
+        description: editDescription,
+        price: editPrice,
+        available: editAvailable,
+        categoryId: editCategoryId,
+        type: editType,
+        activeStatus: editStatus,
+        updatedBy: User.id,
+        restuarent: User.restuarent,
+        image: editImage,
+      });
+      toast.success("Item updated successfully!");
+      setEditForm(false);
+      getAllItems();
+      setEditId(0);
+    } catch (err) {
+      console.log(err);
+      toast.error("Failed to update item. Please try again.");
+    }
   };
 
   const handleAddItem = async () => {
+    if (!name) {
+      toast.error("Item name is required!");
+      return;
+    }
+    if (!categoryId) {
+      toast.error("Please select a category!");
+      return;
+    }
+    if (!type) {
+      toast.error("Item type is required!");
+      return;
+    }
+    
     let obj = {
       name,
       description,
@@ -181,10 +220,12 @@ const Items: React.FC = () => {
       type,
       activeStatus: 1,
       createdBy: User.id,
+      restuarent: User.restuarent,
       image,
     };
     try {
       await postAxios("/items/add", obj);
+      toast.success("Item added successfully!");
       setAddForm(false);
       getAllItems();
       setName("");
@@ -194,7 +235,8 @@ const Items: React.FC = () => {
       setCategoryId(0);
       setType("");
     } catch (err: any) {
-      alert(err.message);
+      console.log(err);
+      toast.error(err.message || "Failed to add item. Please try again.");
     }
   };
 
@@ -215,8 +257,10 @@ const Items: React.FC = () => {
       });
       setImage(res.data);
       setPreview(res.data);
+      toast.success("Image uploaded successfully!");
     } catch (err) {
       console.error("Upload error:", err);
+      toast.error("Failed to upload image. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -232,8 +276,10 @@ const Items: React.FC = () => {
       });
       setEditImage(res.data);
       setEditPreview(res.data);
+      toast.success("Image uploaded successfully!");
     } catch (err) {
       console.error("Upload error:", err);
+      toast.error("Failed to upload image. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -254,12 +300,12 @@ const Items: React.FC = () => {
         </div>
 
         {/* Search Input */}
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex flex-wrap items-center gap-2 mb-4">
           <div>
             <input
               type="text"
               placeholder="Search item"
-              className="border border-gray-300 rounded-md px-3 py-2 w-64"
+              className="border border-gray-300 rounded-md px-3 py-2 w-full sm:w-64"
               value={searchName}
               onChange={(e) => setSearchName(e.target.value)}
             />
@@ -275,11 +321,31 @@ const Items: React.FC = () => {
               <option value="0">Inactive</option>
             </select>
           </div>
+          <div>
+            <select
+              className="border border-gray-300 rounded-md px-3 py-2"
+              value={searchCategory}
+              onChange={(e) => setSearchCategory(e.target.value)}
+            >
+              <option value="">All Categories</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.category}
+                </option>
+              ))}
+            </select>
+          </div>
           <button
             onClick={handleSearch}
             className="px-4 py-2 rounded-md bg-blue-700 text-white flex items-center gap-2 hover:bg-blue-600 cursor-pointer"
           >
             Search
+          </button>
+          <button
+            onClick={clearFilters}
+            className="px-4 py-2 rounded-md bg-gray-500 text-white flex items-center gap-2 hover:bg-gray-600 cursor-pointer"
+          >
+            Clear
           </button>
         </div>
       </div>
@@ -290,7 +356,7 @@ const Items: React.FC = () => {
           <Loader />
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 p-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 p-6">
           {itemData.map((item: Item) => (
             <div
               key={item.id}
@@ -325,7 +391,7 @@ const Items: React.FC = () => {
                 </p>
 
                 <span className="inline-block text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100">
-                  {item?.category?.category}
+                  {item?.category}
                 </span>
               </div>
 

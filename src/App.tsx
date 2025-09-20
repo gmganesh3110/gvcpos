@@ -30,6 +30,40 @@ import RestaurantRegister from "./pages/RestaurantRegister/RestaurantRegister";
 import Subscription from "./pages/Subscription/Subscription";
 import PaymentSuccess from "./pages/Subscription/PaymentSuccess";
 
+// Inventory Management
+import StockManagement from "./pages/Inventory/StockManagement";
+import StockAdjustments from "./pages/Inventory/StockAdjustments";
+import LowStockAlerts from "./pages/Inventory/LowStockAlerts";
+
+// Customer Management
+import CustomerList from "./pages/Customers/CustomerList";
+
+// Sales & Transactions
+import SalesHistory from "./pages/Sales/SalesHistory";
+
+// Kitchen Operations
+import KitchenDisplay from "./pages/Kitchen/KitchenDisplay";
+
+// Financial Management
+import DailySalesSummary from "./pages/Finance/DailySalesSummary";
+
+// Reports
+import {
+  DailySalesReport,
+  MonthlySalesReport,
+  SalesByCategoryReport,
+  TopSellingItemsReport,
+  RevenueAnalysisReport,
+  ProfitLossReport,
+  PaymentMethodsReport,
+  TablePerformanceReport,
+  StaffPerformanceReport,
+  CustomerAnalyticsReport
+} from "./pages/Reports";
+
+// Settings & Configuration
+import RestaurantSettings from "./pages/Settings/RestaurantSettings";
+
 function App() {
   const dispatch = useAppDispatch();
   const { token, user } = useAppSelector((s: any) => s.auth);
@@ -45,7 +79,7 @@ function App() {
       }
 
       try {
-        const payload = jwtDecode<{ user: any; exp?: number }>(storedToken);
+        const payload = jwtDecode<{ user: any; exp?: number; userRolePermissions: any }>(storedToken);
 
         // Check expiry
         if (payload.exp && payload.exp * 1000 < Date.now()) {
@@ -71,6 +105,7 @@ function App() {
                 isRegistered: payload.user.isRegistered,
                 restuarent: payload.user.restuarent,
               },
+              userRolePermissions: payload.userRolePermissions,
             })
           );
         }
@@ -210,6 +245,416 @@ function App() {
             element={
               <MenuLayout>
                 <PoInventory />
+              </MenuLayout>
+            }
+          />
+
+          {/* Inventory Management Routes */}
+          <Route
+            path="/inventory/stock"
+            element={
+              <MenuLayout>
+                <StockManagement />
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/inventory/adjustments"
+            element={
+              <MenuLayout>
+                <StockAdjustments />
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/inventory/alerts"
+            element={
+              <MenuLayout>
+                <LowStockAlerts />
+              </MenuLayout>
+            }
+          />
+
+          {/* Customer Management Routes */}
+          <Route
+            path="/customers"
+            element={
+              <MenuLayout>
+                <CustomerList />
+              </MenuLayout>
+            }
+          />
+
+          {/* Sales & Transactions Routes */}
+          <Route
+            path="/sales/history"
+            element={
+              <MenuLayout>
+                <SalesHistory />
+              </MenuLayout>
+            }
+          />
+
+          {/* Kitchen Operations Routes */}
+          <Route
+            path="/kitchen/display"
+            element={
+              <MenuLayout>
+                <KitchenDisplay />
+              </MenuLayout>
+            }
+          />
+
+          {/* Financial Management Routes */}
+          <Route
+            path="/finance/daily"
+            element={
+              <MenuLayout>
+                <DailySalesSummary />
+              </MenuLayout>
+            }
+          />
+
+          {/* Reports Routes */}
+          <Route
+            path="/reports/daily-sales"
+            element={
+              <MenuLayout>
+                <DailySalesReport />
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/reports/monthly-sales"
+            element={
+              <MenuLayout>
+                <MonthlySalesReport />
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/reports/sales-category"
+            element={
+              <MenuLayout>
+                <SalesByCategoryReport />
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/reports/top-items"
+            element={
+              <MenuLayout>
+                <TopSellingItemsReport />
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/reports/revenue"
+            element={
+              <MenuLayout>
+                <RevenueAnalysisReport />
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/reports/profit-loss"
+            element={
+              <MenuLayout>
+                <ProfitLossReport />
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/reports/payment-methods"
+            element={
+              <MenuLayout>
+                <PaymentMethodsReport />
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/reports/table-performance"
+            element={
+              <MenuLayout>
+                <TablePerformanceReport />
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/reports/staff-performance"
+            element={
+              <MenuLayout>
+                <StaffPerformanceReport />
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/reports/customer-analytics"
+            element={
+              <MenuLayout>
+                <CustomerAnalyticsReport />
+              </MenuLayout>
+            }
+          />
+
+          {/* Settings & Configuration Routes */}
+          <Route
+            path="/settings/restaurant"
+            element={
+              <MenuLayout>
+                <RestaurantSettings />
+              </MenuLayout>
+            }
+          />
+
+          {/* Missing Routes - Add these new routes */}
+          <Route
+            path="/dining-orders"
+            element={
+              <MenuLayout>
+                <Dining />
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/sales/refunds"
+            element={
+              <MenuLayout>
+                <div className="p-6">
+                  <h1 className="text-2xl font-bold mb-4">Refunds & Returns</h1>
+                  <p>Refunds and returns management page - to be implemented</p>
+                </div>
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/sales/voids"
+            element={
+              <MenuLayout>
+                <div className="p-6">
+                  <h1 className="text-2xl font-bold mb-4">Void Transactions</h1>
+                  <p>Void transactions management page - to be implemented</p>
+                </div>
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/payments/methods"
+            element={
+              <MenuLayout>
+                <div className="p-6">
+                  <h1 className="text-2xl font-bold mb-4">Payment Methods</h1>
+                  <p>Payment methods management page - to be implemented</p>
+                </div>
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/cash/management"
+            element={
+              <MenuLayout>
+                <div className="p-6">
+                  <h1 className="text-2xl font-bold mb-4">Cash Management</h1>
+                  <p>Cash management page - to be implemented</p>
+                </div>
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/inventory/transfers"
+            element={
+              <MenuLayout>
+                <div className="p-6">
+                  <h1 className="text-2xl font-bold mb-4">Stock Transfers</h1>
+                  <p>Stock transfers management page - to be implemented</p>
+                </div>
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/purchase-orders"
+            element={
+              <MenuLayout>
+                <div className="p-6">
+                  <h1 className="text-2xl font-bold mb-4">Purchase Orders</h1>
+                  <p>Purchase orders management page - to be implemented</p>
+                </div>
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/suppliers"
+            element={
+              <MenuLayout>
+                <div className="p-6">
+                  <h1 className="text-2xl font-bold mb-4">Supplier Management</h1>
+                  <p>Supplier management page - to be implemented</p>
+                </div>
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/customers/groups"
+            element={
+              <MenuLayout>
+                <div className="p-6">
+                  <h1 className="text-2xl font-bold mb-4">Customer Groups</h1>
+                  <p>Customer groups management page - to be implemented</p>
+                </div>
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/loyalty"
+            element={
+              <MenuLayout>
+                <div className="p-6">
+                  <h1 className="text-2xl font-bold mb-4">Loyalty Program</h1>
+                  <p>Loyalty program management page - to be implemented</p>
+                </div>
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/customers/history"
+            element={
+              <MenuLayout>
+                <div className="p-6">
+                  <h1 className="text-2xl font-bold mb-4">Customer History</h1>
+                  <p>Customer history page - to be implemented</p>
+                </div>
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/kitchen/status"
+            element={
+              <MenuLayout>
+                <div className="p-6">
+                  <h1 className="text-2xl font-bold mb-4">Order Status</h1>
+                  <p>Kitchen order status page - to be implemented</p>
+                </div>
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/kitchen/timing"
+            element={
+              <MenuLayout>
+                <div className="p-6">
+                  <h1 className="text-2xl font-bold mb-4">Preparation Time</h1>
+                  <p>Kitchen preparation time management page - to be implemented</p>
+                </div>
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/kitchen/staff"
+            element={
+              <MenuLayout>
+                <div className="p-6">
+                  <h1 className="text-2xl font-bold mb-4">Kitchen Staff</h1>
+                  <p>Kitchen staff management page - to be implemented</p>
+                </div>
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/finance/register"
+            element={
+              <MenuLayout>
+                <div className="p-6">
+                  <h1 className="text-2xl font-bold mb-4">Cash Register</h1>
+                  <p>Cash register management page - to be implemented</p>
+                </div>
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/finance/tax"
+            element={
+              <MenuLayout>
+                <div className="p-6">
+                  <h1 className="text-2xl font-bold mb-4">Tax Management</h1>
+                  <p>Tax management page - to be implemented</p>
+                </div>
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/finance/pnl"
+            element={
+              <MenuLayout>
+                <div className="p-6">
+                  <h1 className="text-2xl font-bold mb-4">Profit & Loss</h1>
+                  <p>Profit & Loss management page - to be implemented</p>
+                </div>
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/reports/inventory"
+            element={
+              <MenuLayout>
+                <div className="p-6">
+                  <h1 className="text-2xl font-bold mb-4">Inventory Report</h1>
+                  <p>Inventory report page - to be implemented</p>
+                </div>
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/reports/kitchen"
+            element={
+              <MenuLayout>
+                <div className="p-6">
+                  <h1 className="text-2xl font-bold mb-4">Kitchen Report</h1>
+                  <p>Kitchen report page - to be implemented</p>
+                </div>
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/settings/pos"
+            element={
+              <MenuLayout>
+                <div className="p-6">
+                  <h1 className="text-2xl font-bold mb-4">POS Configuration</h1>
+                  <p>POS configuration page - to be implemented</p>
+                </div>
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/settings/tax"
+            element={
+              <MenuLayout>
+                <div className="p-6">
+                  <h1 className="text-2xl font-bold mb-4">Tax Settings</h1>
+                  <p>Tax settings page - to be implemented</p>
+                </div>
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/settings/printers"
+            element={
+              <MenuLayout>
+                <div className="p-6">
+                  <h1 className="text-2xl font-bold mb-4">Printer Settings</h1>
+                  <p>Printer settings page - to be implemented</p>
+                </div>
+              </MenuLayout>
+            }
+          />
+          <Route
+            path="/settings/backup"
+            element={
+              <MenuLayout>
+                <div className="p-6">
+                  <h1 className="text-2xl font-bold mb-4">Backup & Restore</h1>
+                  <p>Backup & restore page - to be implemented</p>
+                </div>
               </MenuLayout>
             }
           />

@@ -9,12 +9,6 @@ const PaymentSuccess: React.FC = () => {
   const navigate = useNavigate(); // ✅ useNavigate hook
 
   useEffect(() => {
-    const orderId = params.get("order_id");
-    const cfId = params.get("cf_id");
-
-    console.log("orderId", orderId);
-    console.log("cfId", cfId);
-
     setTimeout(() => {
       localStorage.removeItem("token"); // safer than clear()
       dispatch(logout());

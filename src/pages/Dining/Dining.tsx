@@ -4,25 +4,21 @@ import { OrderType } from "../../constants/OrderTypes";
 import { getAxios, postAxios } from "../../services/AxiosService";
 import Loader from "../../components/Loader";
 import { useSelector } from "react-redux";
-import { PaymentMode } from "../../constants/Paymodes";
 import { useNavigate } from "react-router-dom";
+import DiningOrderModal from "../../components/Dining/DiningOrderModal";
+import TableCard from "../../components/Dining/TableCard";
+import { toast } from "react-toastify";
 
 // Interface
 interface BlockTableData {
-  id: number;
+  blockId: number;
   blockName: string;
-  tables: {
-    id: number;
-    name: string;
-    capacity: number;
-    status: OrderStatus | null;
-    orders: {
-      id: number;
-      totalAmount: number;
-    }[];
-    totalAmount?: number; // optional if backend sends this
-    blockId?: number; // useful for frontend selection
-  }[];
+  tableId: number;
+  tableName: string;
+  orderId: number;
+  status: OrderStatus;
+  type: OrderType;
+  totalAmount: number;
 }
 
 const Dining = () => {
@@ -36,25 +32,18 @@ const Dining = () => {
   const [total, setTotal] = useState(0);
   const [selectedTable, setSelectedTable] = useState<number | null>(null);
   const [selectedBlock, setSelectedBlock] = useState<number | null>(null);
-  const [existingOrder, setExistingOrder] = useState(false);
   const [existingOrderData, setExistingOrderData] = useState<any>(null);
-  const [isPaid, setIsPaid] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<string | null>(null);
-  const [orderStatus, setOrderStatus] = useState<OrderStatus | null>(null);
   const [itemsLoading, setItemsLoading] = useState(false);
-  const [mostOrderedItems, setMostOrderedItems] = useState<any[]>([]);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
 
   const User = useSelector((state: any) => state.auth.user);
-   const navigate = useNavigate();
+  const navigate = useNavigate();
   if (User && User.isRegistered != 1) {
     navigate("/restaurantregister");
   } else if (User && (!User.expiresAt || User.expiresAt < Date.now())) {
     navigate("/subscription");
   }
-
-  const filteredItems = selectedCategory
-    ? items.filter((i) => i.categoryId === selectedCategory)
-    : items;
 
   useEffect(() => {
     fetchTables();
@@ -64,12 +53,16 @@ const Dining = () => {
     try {
       setLoading(true);
       const response: any = await getAxios(
-        "/orders/getblocksandtableswithorders"
+        "/dining/getblocksandtableswithorders",
+        {
+          restuarent: User.restuarent,
+        }
       );
-      const data = response.data;
+      const data = response.data[0];
       setTables(data);
     } catch (error) {
       console.error("Error fetching tables:", error);
+      toast.error("Failed to fetch tables. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -77,15 +70,14 @@ const Dining = () => {
 
   const fetchCategories = async () => {
     try {
-      const response: any = await getAxios("/categories/getall", {
-        categoryId: selectedCategory,
-        start: 0,
-        limit: 50,
+      const response: any = await getAxios("/items/categories/getall", {
+        restuarent: User.restuarent,
       });
-      const data = response.data.data;
+      const data = response.data[0];
       setCategories(data);
     } catch (error) {
       console.error("Error fetching categories:", error);
+      toast.error("Failed to fetch categories. Please try again.");
     }
   };
 
@@ -97,18 +89,17 @@ const Dining = () => {
     try {
       setItemsLoading(true);
       const response: any = await getAxios("/items/getall", {
-        categoryId: selectedCategory,
+        category: selectedCategory,
+        restuarent: User.restuarent,
         start: 0,
         limit: 50,
       });
 
-      const data: any = response.data.data;
-      if (!selectedCategory) {
-        setMostOrderedItems(data);
-      }
+      const data: any = response.data[0];
       setItems(data);
     } catch (error) {
       console.error("Error fetching filtered items:", error);
+      toast.error("Failed to fetch items. Please try again.");
     } finally {
       setItemsLoading(false);
     }
@@ -144,33 +135,6 @@ const Dining = () => {
     );
   };
 
-  const getStatusConfig = (status: OrderStatus | null) => {
-    switch (status) {
-      case OrderStatus.AVAILABLE:
-        return {
-          bg: "bg-blue-300",
-          text: "text-white",
-          label: "Available",
-        };
-      case OrderStatus.INPROGRESS:
-        return {
-          bg: "bg-blue-100",
-          text: "text-red-700",
-          label: "In Progress",
-        };
-      case OrderStatus.BILLED:
-        return { bg: "bg-amber-100", text: "text-green-700", label: "Billed" };
-      case OrderStatus.COMPLETED:
-        return { bg: "bg-gray-100", text: "text-gray-600", label: "Completed" };
-      default:
-        return {
-          bg: "bg-[#B9E9E9]",
-          text: "text-blue-500",
-          label: "Available",
-        };
-    }
-  };
-
   const onCardClick = (id: number) => {
     setSelectedCategory(id);
   };
@@ -179,500 +143,286 @@ const Dining = () => {
     setTotal(order.reduce((sum, item) => sum + item.price * item.qty, 0));
   }, [order]);
 
-  const handlePlaceOrder = async () => {
-    let orderData = {
-      block: selectedBlock,
-      table: selectedTable,
-      totalAmount: total,
-      status: OrderStatus.INPROGRESS,
-      type: OrderType.DINEIN,
-      isPaid: isPaid,
-      paymentMethod: paymentMethod,
-      createdBy: User.id,
-      items: order.map((item) => ({
-        id: item.id,
-        quantity: item.qty,
-        price: item.price,
-      })),
-    };
-    const res = await postAxios("/orders/createorder", orderData);
-    if (res) {
-      fetchTables();
-      setOrder([]);
-      setNewOrder(false);
+  const handlePlaceOrder = async (orderData: any) => {
+    try {
+      const orderPayload = {
+        block: selectedBlock,
+        table: selectedTable,
+        totalAmount: orderData.total,
+        status: OrderStatus.ORDERED, // Start with ORDERED status for dining
+        type: OrderType.DINEIN,
+        isPaid: false, // No payment required initially
+        paymentMethod: orderData.paymentMethod,
+        createdBy: User.id,
+        startTime: orderData.startTime,
+        restuarent: User.restuarent,
+        items: orderData.items.map((item: any) => ({
+          id: item.id,
+          quantity: item.qty,
+          price: item.price,
+        })),
+      };
+
+      const res = await postAxios("/orders/createorder", orderPayload);
+      if (res) {
+        toast.success("Dining order created successfully!");
+        fetchTables();
+        setOrder([]);
+        setNewOrder(false);
+        setSelectedCategory(null);
+      }
+    } catch (error) {
+      console.error("Error creating order:", error);
+      toast.error("Failed to create order. Please try again.");
     }
   };
 
   const handleGetOrderDetails = async (orderId: number) => {
-    const res: any = await postAxios("/orders/getorderdetails", { orderId });
-    setExistingOrder(true);
-    setOrderStatus(res.data.status);
-    setIsPaid(res.data.isPaid);
-    setPaymentMethod(res.data.paymentMethod);
-    setExistingOrderData(res.data);
-  };
-
-  const handleUpdateOrder = async () => {
     try {
-      await postAxios("/orders/updateorder", {
-        orderId: existingOrderData.orderId,
-        isPaid: isPaid,
-        paymentMode: paymentMethod,
-        modifiedBy: User.id,
-        status: orderStatus || existingOrderData.status,
+      const res: any = await getAxios("/orders/getorderdetails", {
+        orderId,
+        restuarent: User.restuarent,
       });
-      setExistingOrder(false);
-      fetchTables();
-    } catch (err) {
-      console.error(err);
+
+      // The API now returns the order items directly
+      const orderItems = res.data || [];
+      const orderData = {
+        id: orderId,
+        orderitems: orderItems,
+        totalAmount: orderItems.reduce(
+          (sum: number, item: any) =>
+            sum + parseFloat(item.price) * item.quantity,
+          0
+        ),
+        status: orderItems[0].status,
+      };
+      setExistingOrderData(orderData);
+    } catch (error) {
+      console.error("Error fetching order details:", error);
+      toast.error("Failed to fetch order details. Please try again.");
     }
   };
 
-  const handleSaveAndPrint = () => {};
-  const updateSaveAndPrint = () => {};
+  const handleStatusChange = async (
+    orderId: number,
+    newStatus: OrderStatus,
+    totalAmount: number
+  ) => {
+    try {
+      setIsUpdatingStatus(true);
+      const updateData: any = {
+        orderId,
+        modifiedBy: User.id,
+        status: newStatus,
+        totalAmount: totalAmount,
+      };
+
+      // Set end time when order is completed
+      if (newStatus === OrderStatus.COMPLETED) {
+        updateData.endTime = new Date();
+      }
+
+      await postAxios("/orders/updateorder", updateData);
+
+      toast.success(`Order status updated to ${newStatus.toLowerCase()}`);
+      fetchTables();
+    } catch (error) {
+      console.error("Error updating order status:", error);
+      toast.error("Failed to update order status. Please try again.");
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
+  const handleEditOrder = async (orderId: number) => {
+    try {
+      const res: any = await getAxios("/orders/getorderdetails", {
+        orderId,
+        restuarent: User.restuarent,
+      });
+
+      // The API now returns the order items directly
+      const orderItems = res.data || [];
+      console.log(orderItems);
+      const orderData = {
+        id: orderId,
+        orderitems: orderItems,
+        totalAmount: orderItems[0].totalAmount,
+        status: orderItems[0].status,
+      };
+
+      setExistingOrderData(orderData);
+
+      // Set up the order for editing
+      const formattedOrderItems = orderItems.map((item: any) => ({
+        id: item.item,
+        name: item.name,
+        price: parseFloat(item.price),
+        qty: item.quantity,
+      }));
+
+      setOrder(formattedOrderItems);
+      setTotal(orderData.totalAmount);
+      setIsEditMode(true);
+      setNewOrder(true);
+    } catch (error) {
+      console.error("Error fetching order details:", error);
+      toast.error("Failed to fetch order details. Please try again.");
+    }
+  };
+
+  const handleUpdateExistingOrder = async (orderData: any) => {
+    try {
+      // Update the order items
+      let obj = {
+        orderId: existingOrderData.id,
+        restuarent: User.restuarent,
+        items: orderData.items.map((item: any) => ({
+          id: item.id,
+          quantity: item.qty,
+          price: item.price,
+        })),
+        modifiedBy: User.id,
+      };
+      await postAxios("/orders/updateorderitems", obj);
+
+      // Update the order total
+      await postAxios("/orders/updateorder", {
+        orderId: existingOrderData.id,
+        totalAmount: orderData.total,
+        paymentMode: orderData.paymentMethod,
+        modifiedBy: User.id,
+        status: existingOrderData.status,
+      });
+
+      toast.success("Order updated successfully!");
+      setNewOrder(false);
+      setOrder([]);
+      setSelectedCategory(null);
+      setIsEditMode(false);
+      fetchTables();
+    } catch (error) {
+      console.error("Error updating order:", error);
+      toast.error("Failed to update order. Please try again.");
+    }
+  };
 
   return (
-    <div className="container mx-auto px-4 py-8 overflow-auto">
-      <div className="flex items-center justify-between mb-8">
-        <h2 className="text-3xl font-bold text-gray-800">Dining</h2>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-6">
+      {/* Modern Header */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
+              🍽️ Dining Management
+            </h1>
+            <p className="text-gray-600 text-lg">
+              Manage tables, orders, and dining operations
+            </p>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="bg-white rounded-xl shadow-lg p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-sm font-medium text-gray-700">
+                  Live Status
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="flex gap-6 h-[90vh]">
         {/* Left Section - Blocks (80%) */}
         {loading ? (
-          <Loader />
+          <div className=" flex items-center justify-center">
+            <Loader />
+          </div>
         ) : (
-          <div className="w-[80%] overflow-y-auto pr-4">
-            {tables.map((block: BlockTableData) => (
-              <div key={block.id} className="mb-12">
-                <h3 className="text-2xl font-bold text-gray-900 mb-6 tracking-wide">
-                  {block.blockName}
-                </h3>
+          <div className=" overflow-y-auto pr-4">
+            {(() => {
+              // Group tables by block
+              const groupedTables = tables.reduce(
+                (acc: any, table: BlockTableData) => {
+                  if (!acc[table.blockId]) {
+                    acc[table.blockId] = {
+                      blockId: table.blockId,
+                      blockName: table.blockName,
+                      tables: [],
+                    };
+                  }
+                  acc[table.blockId].tables.push(table);
+                  return acc;
+                },
+                {}
+              );
 
-                <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
-                  {block.tables.map((table) => {
-                    const isAvailable =
-                      table.orders.length === 0 &&
-                      table.status === OrderStatus.AVAILABLE;
+              return Object.values(groupedTables).map((block: any) => (
+                <div key={block.blockId} className="mb-12">
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="bg-gradient-to-r from-blue-500 to-purple-500 p-3 rounded-xl">
+                      <span className="text-2xl">🏢</span>
+                    </div>
+                    <h3 className="text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+                      {block.blockName}
+                    </h3>
+                  </div>
 
-                    const cfg = getStatusConfig(table.status!);
-
-                    return (
-                      <div
-                        key={table.id}
-                        onClick={() => {
-                          if (table.orders.length > 0) {
-                            handleGetOrderDetails(table.orders[0].id);
+                  <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
+                    {block.tables.map((table: BlockTableData) => (
+                      <TableCard
+                        key={`${table.blockId}-${table.tableId}`}
+                        table={table}
+                        onTableClick={(table) => {
+                          if (table.orderId && table.orderId > 0) {
+                            handleGetOrderDetails(table.orderId);
                           } else {
                             setNewOrder(true);
-                            setSelectedBlock(block.id);
-                            setSelectedTable(table.id);
+                            setSelectedBlock(table.blockId);
+                            setSelectedTable(table.tableId);
                           }
                         }}
-                        className="rounded-xl p-5 flex flex-col justify-between cursor-pointer border bg-white shadow hover:shadow-lg transition-all duration-300"
-                      >
-                        {/* Header */}
-                        <div className="flex justify-center items-center mb-4">
-                          <h3 className="text-lg font-semibold text-gray-800">
-                            {table.name}
-                          </h3>
-                        </div>
-
-                        {/* Body */}
-                        {isAvailable ? (
-                          <div className="flex flex-col items-center justify-center flex-1">
-                            <div className="flex items-center justify-center h-14 w-14 rounded-full bg-green-100 mb-3">
-                              <svg
-                                className="h-7 w-7 text-green-600"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth="2"
-                                  d="M12 4v16m8-8H4"
-                                />
-                              </svg>
-                            </div>
-                            <p className="text-sm font-semibold text-green-700">
-                              Ready for Order
-                            </p>
-                          </div>
-                        ) : (
-                          <div className="flex flex-col items-center justify-center flex-1">
-                            <p className={`text-base font-bold ${cfg.text}`}>
-                              {cfg.label}
-                            </p>
-                            {table.orders.length > 0 && (
-                              <p className="text-sm text-gray-500 mt-1 font-medium">
-                                Order #{table.orders[0].id}
-                              </p>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Footer */}
-                        <div className="flex justify-center items-center mt-4 text-sm">
-                          {isAvailable ? (
-                            <span className="text-gray-400 italic">
-                              Available
-                            </span>
-                          ) : (
-                            <span className="font-semibold text-red-600 text-base">
-                              ₹{table?.orders?.[0]?.totalAmount ?? ""}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                        onEditOrder={handleEditOrder}
+                        onStatusChange={handleStatusChange}
+                        isUpdatingStatus={isUpdatingStatus}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ));
+            })()}
           </div>
         )}
-
-        {/* Right Section - Most Ordered Items (20%) */}
-        <div className="w-[20%] bg-white border rounded-xl shadow p-2 overflow-y-auto">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">
-            ⭐ Most Ordered Items
-          </h2>
-          {itemsLoading ? (
-            <Loader />
-          ) : (
-            <div className="grid grid-cols-1 gap-5">
-              {mostOrderedItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="p-4 rounded-lg shadow-sm border bg-gray-50 hover:bg-gray-100 cursor-pointer transition"
-                >
-                  <div className="relative w-full h-32 bg-gray-100 rounded-lg overflow-hidden mb-3 flex items-center justify-center">
-                    {item.image ? (
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        className="object-cover w-full h-full transition-transform duration-500 hover:scale-110"
-                      />
-                    ) : (
-                      <span className="text-gray-400 text-sm">No Image</span>
-                    )}
-                  </div>
-
-                  <p className="font-semibold text-gray-800">{item.name}</p>
-                  <p className="text-sm text-gray-600">₹{item.price}</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
 
-      {newOrder && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white w-[95%] h-[90%] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-gray-200">
-            {/* Header */}
-            <div className="flex justify-between items-center p-5 border-b bg-gradient-to-r bg-gray-200 text-white">
-              <h1 className="text-2xl text-blue-500 font-bold">🛒 New Order</h1>
-              <button
-                onClick={() => setNewOrder(false)}
-                className="text-black hover:text-gray-700 text-xl"
-              >
-                ✕
-              </button>
-            </div>
-            {/* Content */}
-            <div className="flex flex-1 overflow-hidden bg-gray-200">
-              {/* Left Side */}
-              <div className="w-[20%] grid  border-r bg-gray-200">
-                <div className="h-[100%] p-4 grid grid-cols-1 gap-4 overflow-y-auto">
-                  {categories.map((cat: any) => (
-                    <div
-                      key={cat.id}
-                      className={`p-4 rounded-xl shadow  cursor-pointer hover:scale-105 transition transform hover:shadow-lg bg-gray-100`}
-                      onClick={() => onCardClick(cat.id)}
-                    >
-                      <p className="font-semibold text-black text-center">
-                        {cat.category}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="w-[50%] flex  border-r bg-gray-200">
-                {/* Categories */}
-                {/* Items */}
-                {itemsLoading ? (
-                  <div className="flex w-full items-center justify-between h-full">
-                    <Loader />
-                  </div>
-                ) : (
-                  <div className="h-[100%] p-4 grid grid-cols-3 gap-4 overflow-y-auto">
-                    {filteredItems.map((item) => (
-                      <div
-                        key={item.id}
-                        className={`p-4 rounded-xl shadow bg-gradient-to-br cursor-pointer hover:scale-105 transition transform hover:shadow-md bg-gray-100 h-60 `}
-                        onClick={() => handleAddItem(item)}
-                      >
-                        <div className="relative w-full h-32 bg-gradient-to-br rounded-t-3xl overflow-hidden flex items-center justify-center">
-                          {item.image ? (
-                            <img
-                              src={item.image}
-                              alt={item.name}
-                              className="object-cover w-full h-full transform group-hover:scale-110 transition-transform duration-700"
-                            />
-                          ) : (
-                            <span className="text-gray-400 text-sm">
-                              No Image
-                            </span>
-                          )}
-                        </div>
-
-                        <p className="font-medium">{item.name}</p>
-                        <p className="text-sm mt-1">₹{item.price}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {/* Right Side */}
-              <div className="w-[30%] bg-gray-50">
-                <div className="h-full p-4 flex flex-col">
-                  <h2 className="text-lg font-bold mb-4">Order Summary</h2>
-
-                  {/* Order Items */}
-                  <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-                    {order.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition"
-                      >
-                        <div>
-                          <p className="font-medium">{item.name}</p>
-                          <p className="text-sm text-gray-500">₹{item.price}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            className="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition"
-                            onClick={() => handleDecrease(item.id)}
-                          >
-                            -
-                          </button>
-                          <span>{item.qty}</span>
-                          <button
-                            className="px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition"
-                            onClick={() => handleIncrease(item.id)}
-                          >
-                            +
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  {/* Total & Buttons */}
-                  <div className="mt-4 border-t pt-4 space-y-3">
-                    <div className="flex justify-between items-center mb-4 text-lg font-bold">
-                      <span>Total:</span>
-                      <span className="text-green-600">₹{total}</span>
-                    </div>
-
-                    {/* New Buttons Row */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white py-2 rounded-lg font-semibold shadow-md hover:shadow-lg transition"
-                        onClick={handlePlaceOrder}
-                      >
-                        💾 Save
-                      </button>
-                      <button
-                        className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white py-2 rounded-lg font-semibold shadow-md hover:shadow-lg transition"
-                        onClick={handleSaveAndPrint}
-                      >
-                        🖨 Save & Print
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      {existingOrder && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white w-[95%] h-[90%] rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-gray-200">
-            {/* Header */}
-            <div className="flex justify-between items-center p-5 border-b bg-gradient-to-r bg-gray-200">
-              <h1 className="text-2xl text-gray-800 font-bold flex items-center gap-2">
-                🛒 View Order
-              </h1>
-              <button
-                onClick={() => setExistingOrder(false)}
-                className="text-gray-800 hover:text-gray-600 text-2xl"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Content */}
-            <div className="flex flex-1 overflow-hidden">
-              {/* Left Side - Categories */}
-              <div className="w-[20%] border-r bg-gray-50">
-                <div className="h-full p-4 grid grid-cols-1 gap-4 overflow-y-auto">
-                  {categories.map((cat: any) => (
-                    <div
-                      key={cat.id}
-                      className="p-4 rounded-xl shadow-sm cursor-pointer hover:scale-105 transition bg-white hover:shadow-md"
-                      onClick={() => onCardClick(cat.id)}
-                    >
-                      <p className="font-semibold text-gray-800 text-center">
-                        {cat.category}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Middle - Items */}
-              <div className="w-[50%] border-r bg-gray-50">
-                <div className="h-full p-4 grid grid-cols-3 gap-4 overflow-y-auto">
-                  {filteredItems.map((item) => (
-                    <div
-                      key={item.id}
-                      className="p-4 rounded-xl shadow-sm bg-white cursor-pointer hover:scale-105 transition hover:shadow-md"
-                      onClick={() => handleAddItem(item)}
-                    >
-                      <div className="relative w-full h-32 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
-                        {item.image ? (
-                          <img
-                            src={item.image}
-                            alt={item.name}
-                            className="object-cover w-full h-full transition-transform duration-500 hover:scale-110"
-                          />
-                        ) : (
-                          <span className="text-gray-400 text-sm">
-                            No Image
-                          </span>
-                        )}
-                      </div>
-                      <p className="font-medium mt-2">{item.name}</p>
-                      <p className="text-sm text-gray-600">₹{item.price}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Right Side - Order Summary */}
-              <div className="w-[30%] bg-gray-50">
-                <div className="h-full p-4 flex flex-col">
-                  <h2 className="text-lg font-bold mb-4">Order Summary</h2>
-
-                  {/* Order Items */}
-                  <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-                    {existingOrderData.orderitems.map((item: any) => (
-                      <div
-                        key={item.id}
-                        className="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm hover:shadow-md border"
-                      >
-                        <div>
-                          <p className="font-medium">{item.item.name}</p>
-                          <p className="text-sm text-gray-500">₹{item.item.price}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            className="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition"
-                            onClick={() => handleDecrease(item.id)}
-                          >
-                            -
-                          </button>
-                          <span className="min-w-[24px] text-center">
-                            {item.qty}
-                          </span>
-                          <button
-                            className="px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition"
-                            onClick={() => handleIncrease(item.id)}
-                          >
-                            +
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Checkboxes & Payment */}
-                  <div className="mt-4 space-y-3">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={isPaid}
-                        onChange={(e) => setIsPaid(e.target.checked)}
-                        className="w-4 h-4"
-                      />
-                      <span>Paid</span>
-                    </label>
-
-                    <div>
-                      <select
-                        className="w-full border rounded-lg p-2"
-                        onChange={(e) => setPaymentMethod(e.target.value)}
-                      >
-                        <option value={PaymentMode.CASH}>Cash</option>
-                        <option value={PaymentMode.CARD}>Card</option>
-                        <option value={PaymentMode.UPI}>UPI</option>
-                        <option value={PaymentMode.ONLINE}>Online</option>
-                      </select>
-                    </div>
-
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4"
-                        onChange={() =>
-                          setOrderStatus(
-                            existingOrderData.status == OrderStatus.INPROGRESS
-                              ? OrderStatus.BILLED
-                              : OrderStatus.COMPLETED
-                          )
-                        }
-                        value={orderStatus || undefined}
-                      />
-                      <span>
-                        {existingOrderData.status == OrderStatus.INPROGRESS
-                          ? OrderStatus.BILLED
-                          : OrderStatus.COMPLETED}
-                      </span>
-                    </label>
-                  </div>
-
-                  {/* Total & Buttons */}
-                  <div className="mt-4 border-t pt-4 space-y-3">
-                    <div className="flex justify-between items-center text-lg font-bold">
-                      <span>Total:</span>
-                      <span className="text-green-600">₹{total}</span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        className="bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold shadow"
-                        onClick={handleUpdateOrder}
-                      >
-                        💾 Save
-                      </button>
-                      <button
-                        className="bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg font-semibold shadow"
-                        onClick={updateSaveAndPrint}
-                      >
-                        🖨 Save & Print
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <DiningOrderModal
+        isOpen={newOrder}
+        onClose={() => {
+          setNewOrder(false);
+          setIsEditMode(false);
+          setOrder([]);
+          setSelectedCategory(null);
+        }}
+        onSubmit={isEditMode ? handleUpdateExistingOrder : handlePlaceOrder}
+        categories={categories}
+        items={items}
+        itemsLoading={itemsLoading}
+        onCategorySelect={onCardClick}
+        onItemAdd={handleAddItem}
+        onItemIncrease={handleIncrease}
+        onItemDecrease={handleDecrease}
+        selectedCategory={selectedCategory}
+        order={order}
+        total={total}
+        tableInfo={{
+          tableNumber: selectedTable?.toString() || "",
+          blockName:
+            tables.find((b) => b.blockId === selectedBlock)?.blockName || "",
+        }}
+        isEditMode={isEditMode}
+        existingOrderData={existingOrderData}
+      />
     </div>
   );
 };

@@ -9,6 +9,7 @@ import { HiPencilAlt, HiTrash } from "react-icons/hi";
 import { FiPlus } from "react-icons/fi";
 import Loader from "../../components/Loader";
 import { useSelector } from "react-redux";
+import { toast } from "react-toastify";
 
 interface TableData {
   id: number;
@@ -16,16 +17,9 @@ interface TableData {
   description: string;
   capacity: number;
   blockName: string; // from join
-  createdBy: {
-    id: number;
-    firstName: string;
-    lastName: string;
-  };
+  createdBy: string;
   activeStatus: number;
-  block: {
-    id: number;
-    blockName: string;
-  };
+  block: string;
 }
 
 interface Block {
@@ -41,7 +35,7 @@ const Tables: React.FC = () => {
   const [totalCount, setTotalCount] = useState<number>(0);
   const [blockList, setBlockList] = useState<Block[]>([]);
   const [searchBlockId, setSearchBlockId] = useState<number>(0);
-  const [searchStatus, setSearchStatus] = useState<string>("");
+  const [searchStatus, setSearchStatus] = useState<number>(1);
   const [searchTable, setSearchTable] = useState<string>("");
 
   // Add/Edit form states
@@ -74,12 +68,15 @@ const Tables: React.FC = () => {
   const getBlockList = async () => {
     try {
       const res: any = await getAxios("/blocks/getall", {
+        restuarent: User.restuarent,
+        status: 1,
         start: 0,
         limit: 10,
       });
-      setBlockList(res.data.data);
+      setBlockList(res.data[0]);
     } catch (err) {
       console.error(err);
+      toast.error("Failed to fetch blocks. Please try again.");
     }
   };
 
@@ -88,15 +85,17 @@ const Tables: React.FC = () => {
       setIsLoading(true);
       const res: any = await getAxios("/tables/getall", {
         tableName: searchTable,
-        blockId: searchBlockId,
+        block: searchBlockId,
+        restuarent: User.restuarent,
         status: searchStatus,
         start: (page - 1) * limit,
         limit,
       });
-      setTableData(res.data.data);
-      setTotalCount(res.data.total);
+      setTableData(res.data[0]);
+      setTotalCount(res.data[1][0].tot);
     } catch (err) {
       console.error(err);
+      toast.error("Failed to fetch tables. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -108,56 +107,80 @@ const Tables: React.FC = () => {
       setEditForm(true);
       setIsLoading(true);
       const res: any = await getAxios("/tables/getone/" + id);
-      setFormBlockId(res.data.block.id);
-      setTableName(res.data.tableName);
-      setDescription(res.data.description);
-      setCapacity(res.data.capacity);
-      setStatus(res.data.activeStatus);
+      setFormBlockId(res.data[0][0].block.id);
+      setTableName(res.data[0][0].tableName);
+      setDescription(res.data[0][0].description);
+      setCapacity(res.data[0][0].capacity);
+      setStatus(res.data[0][0].activeStatus);
     } catch (err) {
       console.error(err);
+      toast.error("Failed to fetch table details. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleDelete = async (id: number) => {
-    await deleteAxios("/tables/delete", {
-      id,
-      updatedBy: User.id,
-    });
-    getAllTables();
+    try {
+      await deleteAxios("/tables/delete/", {
+        id,
+        updatedBy: User.id,
+        restuarent: User.restuarent,
+      });
+      toast.success("Table deleted successfully!");
+      getAllTables();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to delete table. Please try again.");
+    }
   };
 
   const handleAddTable = async () => {
-    if (!formBlockId || !tableName) return;
+    if (!formBlockId || !tableName) {
+      toast.error("Block and table name are required!");
+      return;
+    }
     try {
       await postAxios("/tables/add", {
-        blockId: formBlockId,
+        block: formBlockId,
         tableName,
         description,
         capacity,
         activeStatus: status,
         createdBy: User.id,
+        restuarent: User.restuarent,
       });
+      toast.success("Table added successfully!");
       closeForm();
       getAllTables();
     } catch (err: any) {
-      alert(err.message);
+      console.error(err);
+      toast.error(err.message || "Failed to add table. Please try again.");
     }
   };
 
   const handleUpdateTable = async () => {
-    if (!formBlockId || !tableName) return;
-    await putAxios("/tables/update/" + editId, {
-      blockId: formBlockId,
-      tableName,
-      description,
-      capacity,
-      activeStatus: status,
-      updatedBy: User.id,
-    });
-    closeForm();
-    getAllTables();
+    if (!formBlockId || !tableName) {
+      toast.error("Block and table name are required!");
+      return;
+    }
+    try {
+      await putAxios("/tables/update/" + editId, {
+        block: formBlockId,
+        tableName,
+        description,
+        capacity,
+        activeStatus: status,
+        updatedBy: User.id,
+        restuarent: User.restuarent,
+      });
+      toast.success("Table updated successfully!");
+      closeForm();
+      getAllTables();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to update table. Please try again.");
+    }
   };
 
   const closeForm = () => {
@@ -214,7 +237,7 @@ const Tables: React.FC = () => {
         <select
           className="border rounded-md px-3 py-2"
           value={searchStatus}
-          onChange={(e) => setSearchStatus(e.target.value)}
+          onChange={(e:any) => setSearchStatus(e.target.value)}
         >
           <option value="">All Status</option>
           <option value="1">Active</option>
@@ -229,59 +252,94 @@ const Tables: React.FC = () => {
         </button>
       </div>
 
-      {/* Table List */}
+      {/* GRID VIEW */}
       {isLoading ? (
         <div className="flex justify-center items-center h-120">
           <Loader />
         </div>
       ) : (
-        <div className="overflow-x-auto border rounded-lg">
-          <table className="table-auto min-w-full">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="p-3">ID</th>
-                <th className="p-3">Block</th>
-                <th className="p-3">Table Name</th>
-                <th className="p-3">Capacity</th>
-                <th className="p-3">Description</th>
-                <th className="p-3">Status</th>
-                <th className="p-3 text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tableData.map((t: TableData) => (
-                <tr key={t.id} className="border-t">
-                  <td className="p-3 text-center">{t.id}</td>
-                  <td className="p-3 text-center">{t.block.blockName}</td>
-                  <td className="p-3 text-center">{t.tableName}</td>
-                  <td className="p-3 text-center">{t.capacity}</td>
-                  <td className="p-3 text-center">{t.description}</td>
-                  <td className="p-3 text-center">
-                    {t.activeStatus === 1 ? "Active" : "Inactive"}
-                  </td>
-                  <td className="p-3 flex gap-2 text-center">
-                    <div className="text-center">
-                      <button
-                        onClick={() => handleEdit(t.id)}
-                        className="p-2 bg-white rounded hover:bg-blue-500"
-                      >
-                        <HiPencilAlt className="text-indigo-500" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSelectedId(t.id);
-                          setShowConfirm(true);
-                        }}
-                        className="p-2 bg-white rounded hover:bg-blue-600"
-                      >
-                        <HiTrash className="text-blue-600" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 p-6">
+          {tableData.map((table: TableData) => (
+            <div
+              key={table.id}
+              className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col"
+            >
+              {/* Header with Table Icon */}
+              <div className="relative w-full h-32 bg-gradient-to-br from-green-50 to-emerald-100 rounded-t-xl flex items-center justify-center">
+                <div className="flex flex-col items-center">
+                  <svg className="w-12 h-12 text-green-600 mb-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm0 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V8zm0 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1v-2z" clipRule="evenodd" />
+                  </svg>
+                  <span className="text-sm font-medium text-green-700">Table</span>
+                </div>
+
+                {/* ID Badge */}
+                <span className="absolute top-3 right-3 bg-green-600 text-white text-xs font-semibold px-2 py-0.5 rounded-md shadow">
+                  #{table.id}
+                </span>
+              </div>
+
+              {/* Body */}
+              <div className="p-4 flex-1 flex flex-col gap-2">
+                <h3 className="text-base font-semibold text-gray-800">
+                  {table.tableName}
+                </h3>
+                
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm0 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V8zm0 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1v-2z" clipRule="evenodd" />
+                  </svg>
+                  <span>{table.blockName}</span>
+                </div>
+
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                  </svg>
+                  <span>Capacity: {table.capacity}</span>
+                </div>
+
+                {table.description && (
+                  <p className="text-sm text-gray-600 line-clamp-2">
+                    {table.description}
+                  </p>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="flex justify-between items-center px-4 py-3 border-t bg-gray-50 rounded-b-xl">
+                {table.activeStatus === 1 ? (
+                  <span className="text-xs font-medium px-2 py-0.5 rounded bg-green-50 text-green-700 border border-green-200">
+                    ● Active
+                  </span>
+                ) : (
+                  <span className="text-xs font-medium px-2 py-0.5 rounded bg-red-50 text-red-600 border border-red-200">
+                    ● Inactive
+                  </span>
+                )}
+
+                <div className="flex gap-2">
+                  {/* Edit */}
+                  <button
+                    onClick={() => handleEdit(table.id)}
+                    className="p-2 rounded-md bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm"
+                  >
+                    <HiPencilAlt className="w-4 h-4 text-white" />
+                  </button>
+                  {/* Delete */}
+                  <button
+                    onClick={() => {
+                      setSelectedId(table.id);
+                      setShowConfirm(true);
+                    }}
+                    className="p-2 rounded-md bg-red-500 hover:bg-red-600 transition-colors shadow-sm"
+                  >
+                    <HiTrash className="w-4 h-4 text-white" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

@@ -1,9 +1,15 @@
 import React, { useEffect, useState } from "react";
-import { postAxios } from "../../services/AxiosService";
+import {
+  deleteAxios,
+  getAxios,
+  postAxios,
+  putAxios,
+} from "../../services/AxiosService";
 import { HiPencilAlt, HiTrash } from "react-icons/hi";
 import { FiPlus } from "react-icons/fi";
 import Loader from "../../components/Loader";
 import { useSelector } from "react-redux";
+import { toast } from "react-toastify";
 interface User {
   id: number;
   username: string;
@@ -15,6 +21,16 @@ interface User {
   activeStatus: number;
   createdBy?: string;
   createdAt?: string;
+  image?: string;
+}
+
+interface GetAllUsersDto {
+  start: number;
+  limit: number;
+  restuarent: number;
+  userRole: number;
+  email: string;
+  name: string;
 }
 const limit = 5;
 const Users: React.FC = () => {
@@ -28,10 +44,12 @@ const Users: React.FC = () => {
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
   // Filter states
-  const [filterUserRole, setFilterUserRole] = useState<string>("");
+  const [filterUserRole, setFilterUserRole] = useState<number>(0);
   const [filterEmail, setFilterEmail] = useState<string>("");
   const [filterName, setFilterName] = useState<string>("");
-  const [availableUserRoles, setAvailableUserRoles] = useState<string[]>([]);
+  const [availableUserRoles, setAvailableUserRoles] = useState<
+    { id: number; userRole: string }[]
+  >([]);
 
   // Form states for adding user
   const [username, setUsername] = useState<string>("");
@@ -54,6 +72,12 @@ const Users: React.FC = () => {
   const [editPassword, setEditPassword] = useState<string>("");
   const [editUserStatus, setEditUserStatus] = useState<number>(1);
 
+  // Image upload states
+  const [image, setImage] = useState<String | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [editImage, setEditImage] = useState<String | string | null>(null);
+  const [editPreview, setEditPreview] = useState<string | null>(null);
+
   const User = useSelector((state: any) => state.auth.user);
   const totalPages = Math.ceil(totalCount / limit);
   useEffect(() => {
@@ -63,32 +87,43 @@ const Users: React.FC = () => {
   const getAllUsers = async () => {
     try {
       setIsLoading(true);
-      const res: any = await postAxios("/users/getall", {
-        filterUserRole: filterUserRole,
-        filterEmail: filterEmail,
-        filterName: filterName,
+      const body: GetAllUsersDto = {
         start: (page - 1) * limit,
         limit,
-      });
+        restuarent: User.restuarent,
+        userRole: filterUserRole,
+        email: filterEmail,
+        name: filterName,
+      };
+      const res: any = await getAxios("/users/getall", body);
       setUserData(res.data[0]);
       setTotalCount(res.data[1][0].tot);
       setIsLoading(false);
     } catch (err) {
       console.log(err);
+      toast.error("Failed to fetch users. Please try again.");
       setIsLoading(false);
     }
   };
 
   const getAvailableUserRoles = async () => {
     try {
-      const res: any = await postAxios("/user-role/getall", {
+      const res: any = await getAxios("/user-role/getall", {
         start: 0,
         limit: 1000,
+        status: 1,
+        restuarent: User.restuarent,
       });
-      const roles = res.data[0].map((role: any) => role.userRole);
+      const roles = res.data[0].map((role: any) => {
+        return {
+          id: role.id,
+          userRole: role.userRole,
+        };
+      });
       setAvailableUserRoles(roles);
     } catch (err) {
       console.log(err);
+      toast.error("Failed to fetch user roles. Please try again.");
     }
   };
   const handleEdit = async (id: number) => {
@@ -96,8 +131,9 @@ const Users: React.FC = () => {
     try {
       setEditForm(true);
       setIsLoading(true);
-      const res: any = await postAxios("/users/getone", {
+      const res: any = await getAxios("/users/getone/" + id, {
         id,
+        restuarent: User.restuarent,
       });
       const user = res.data[0][0];
       setEditUsername(user.username);
@@ -105,8 +141,10 @@ const Users: React.FC = () => {
       setEditFirstName(user.firstName);
       setEditLastName(user.lastName);
       setEditMobileNumber(user.mobileNumber);
-      setEditUserRole(user.userRole);
+      setEditUserRole(user.userroleid);
       setEditUserStatus(user.activeStatus);
+      setEditImage(user.image || null);
+      setEditPreview(user.image || null);
       setIsLoading(false);
     } catch (err) {
       setIsLoading(false);
@@ -114,11 +152,18 @@ const Users: React.FC = () => {
     }
   };
   const handleDelete = async (id: number) => {
-    await postAxios("/users/delete", {
-      id,
-      updatedBy: User.id,
-    });
-    getAllUsers();
+    try {
+      await deleteAxios("/users/delete/" + id, {
+        id,
+        updatedBy: User.id,
+        restuarent: User.restuarent,
+      });
+      toast.success("User deleted successfully!");
+      getAllUsers();
+    } catch (err) {
+      console.log(err);
+      toast.error("Failed to delete user. Please try again.");
+    }
   };
   const handleSearch = () => {
     setPage(1); // Reset to first page when searching
@@ -138,25 +183,33 @@ const Users: React.FC = () => {
       !editMobileNumber ||
       !editUserRole
     ) {
-      alert("Please fill all required fields");
+      toast.error("Please fill all required fields");
       return;
     }
 
-    await postAxios("/users/update", {
-      id: editId,
-      username: editUsername,
-      email: editEmail,
-      firstName: editFirstName,
-      lastName: editLastName,
-      mobileNumber: editMobileNumber,
-      userRole: editUserRole,
-      password: editPassword,
-      status: editUserStatus,
-      updatedBy: User.id,
-    });
-    setEditForm(false);
-    getAllUsers();
-    setEditId(0);
+    try {
+      await putAxios("/users/update/" + editId, {
+        id: editId,
+        username: editUsername,
+        email: editEmail,
+        firstName: editFirstName,
+        lastName: editLastName,
+        mobileNumber: editMobileNumber,
+        userRole: editUserRole,
+        password: editPassword,
+        status: editUserStatus,
+        image: editImage,
+        updatedBy: User.id,
+        restuarent: User.restuarent,
+      });
+      toast.success("User updated successfully!");
+      setEditForm(false);
+      getAllUsers();
+      setEditId(0);
+    } catch (err) {
+      console.log(err);
+      toast.error("Failed to update user. Please try again.");
+    }
   };
 
   const handleAddUser = async () => {
@@ -169,32 +222,42 @@ const Users: React.FC = () => {
       !userRole ||
       !password
     ) {
-      alert("Please fill all required fields");
+      toast.error("Please fill all required fields");
       return;
     }
 
-    await postAxios("/users/add", {
-      username,
-      email,
-      firstName,
-      lastName,
-      mobileNumber,
-      userRole,
-      password,
-      status,
-      createdBy: User.id,
-    });
-    setAddForm(false);
-    // Reset form
-    setUsername("");
-    setEmail("");
-    setFirstName("");
-    setLastName("");
-    setMobileNumber("");
-    setUserRole("");
-    setPassword("");
-    setStatus(1);
-    getAllUsers();
+    try {
+      await postAxios("/users/add", {
+        username,
+        email,
+        firstName,
+        lastName,
+        mobileNumber,
+        userRole,
+        password,
+        status,
+        image,
+        createdBy: User.id,
+        restuarent: User.restuarent,
+      });
+      toast.success("User added successfully!");
+      setAddForm(false);
+      // Reset form
+      setUsername("");
+      setEmail("");
+      setFirstName("");
+      setLastName("");
+      setMobileNumber("");
+      setUserRole("");
+      setPassword("");
+      setStatus(1);
+      setImage(null);
+      setPreview(null);
+      getAllUsers();
+    } catch (err) {
+      console.log(err);
+      toast.error("Failed to add user. Please try again.");
+    }
   };
   const onEditFormClose = () => {
     setEditForm(false);
@@ -208,7 +271,49 @@ const Users: React.FC = () => {
     setEditUserRole("");
     setEditPassword("");
     setEditUserStatus(1);
+    setEditImage(null);
+    setEditPreview(null);
   };
+
+  // Image upload functions
+  const handleUploadImage = async (file: File) => {
+    try {
+      if (!file) return;
+      setIsLoading(true);
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res: any = await postAxios("/s3/image", formData, {
+        "Content-Type": "multipart/form-data",
+      });
+      setImage(res.data);
+      setPreview(res.data);
+    } catch (err) {
+      console.error("Upload error:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUploadEditImage = async (file: File) => {
+    try {
+      if (!file) return;
+      setIsLoading(true);
+      const formData = new FormData();
+      formData.append("file", file);
+      const res: any = await postAxios("/s3/image", formData, {
+        "Content-Type": "multipart/form-data",
+      });
+      setEditImage(res.data);
+      setEditPreview(res.data);
+    } catch (err) {
+      console.error("Upload error:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div>
       <div className="flex flex-col">
@@ -219,7 +324,7 @@ const Users: React.FC = () => {
               <h2 className="text-xl font-bold">Users</h2>
               <button
                 onClick={() => setAddForm(true)}
-                className="px-4 py-2 rounded-md bg-orange-500 text-white flex items-center gap-2 hover:bg-orange-600 cursor-pointer"
+                className="px-4 py-2 rounded-md bg-blue-500 text-white flex items-center gap-2 hover:bg-blue-600 cursor-pointer"
               >
                 <FiPlus /> Add User
               </button>
@@ -234,14 +339,14 @@ const Users: React.FC = () => {
                     User Role
                   </label>
                   <select
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     value={filterUserRole}
-                    onChange={(e) => setFilterUserRole(e.target.value)}
+                    onChange={(e: any) => setFilterUserRole(e.target.value)}
                   >
-                    <option value="">All Roles</option>
+                    <option value="">Select a user role...</option>
                     {availableUserRoles.map((role, index) => (
-                      <option key={index} value={role}>
-                        {role}
+                      <option key={index} value={role.id}>
+                        {role.userRole}
                       </option>
                     ))}
                   </select>
@@ -255,7 +360,7 @@ const Users: React.FC = () => {
                   <input
                     type="email"
                     placeholder="Filter by email..."
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     value={filterEmail}
                     onChange={(e) => setFilterEmail(e.target.value)}
                   />
@@ -269,7 +374,7 @@ const Users: React.FC = () => {
                   <input
                     type="text"
                     placeholder="Filter by name..."
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     value={filterName}
                     onChange={(e) => setFilterName(e.target.value)}
                   />
@@ -277,7 +382,7 @@ const Users: React.FC = () => {
                 <div className="flex items-end gap-2">
                   <button
                     onClick={handleSearch}
-                    className="px-4 py-2 rounded-md bg-orange-500 text-white hover:bg-orange-600 cursor-pointer flex items-center gap-2"
+                    className="px-4 py-2 rounded-md bg-blue-500 text-white hover:bg-blue-600 cursor-pointer flex items-center gap-2"
                   >
                     <svg
                       className="w-4 h-4"
@@ -301,155 +406,133 @@ const Users: React.FC = () => {
             </div>
           </div>
         </div>
-        {/* TABLE */}
+        {/* GRID VIEW */}
         {isLoading ? (
           <div className="flex justify-center items-center h-120">
             <Loader />
           </div>
         ) : (
-          <div className="overflow-x-auto pb-4 ">
-            <div className="min-w-full inline-block align-middle">
-              <div className="overflow-hidden border rounded-lg border-gray-300">
-                <table className="table-auto min-w-full rounded-xl">
-                  <thead>
-                    <tr className="bg-orange-50">
-                      <th className="p-5 text-left text-sm font-semibold text-gray-900">
-                        ID
-                      </th>
-                      <th className="p-5 text-left text-sm font-semibold text-gray-900">
-                        Username
-                      </th>
-                      <th className="p-5 text-left text-sm font-semibold text-gray-900">
-                        Email
-                      </th>
-                      <th className="p-5 text-left text-sm font-semibold text-gray-900">
-                        Name
-                      </th>
-                      <th className="p-5 text-left text-sm font-semibold text-gray-900">
-                        Mobile
-                      </th>
-                      <th className="p-5 text-left text-sm font-semibold text-gray-900">
-                        Role
-                      </th>
-                      <th className="p-5 text-left text-sm font-semibold text-gray-900">
-                        Status
-                      </th>
-                      <th className="p-5 text-left text-sm font-semibold text-gray-900">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-300">
-                    {userData.map((user: User) => (
-                      <tr
-                        key={user.id}
-                        className="bg-white transition-all duration-500 hover:bg-orange-50"
-                      >
-                        <td className="p-5 text-sm font-medium text-gray-900">
-                          {user.id}
-                        </td>
-                        <td className="p-5 text-sm font-medium text-gray-900">
-                          {user.username}
-                        </td>
-                        <td className="p-5 text-sm font-medium text-gray-900">
-                          {user.email}
-                        </td>
-                        <td className="p-5 text-sm font-medium text-gray-900">
-                          {user.firstName} {user.lastName}
-                        </td>
-                        <td className="p-5 text-sm font-medium text-gray-900">
-                          {user.mobileNumber}
-                        </td>
-                        <td className="p-5 text-sm font-medium text-gray-900">
-                          {user.userRole}
-                        </td>
-                        <td className="p-5 text-sm font-medium text-gray-900">
-                          <div className="py-1.5 px-2.5 bg-emerald-50 rounded-full flex justify-center w-20 items-center gap-1">
-                            <svg
-                              width="5"
-                              height="6"
-                              viewBox="0 0 5 6"
-                              fill="none"
-                            >
-                              <circle
-                                cx="2.5"
-                                cy="3"
-                                r="2.5"
-                                fill="#059669"
-                              ></circle>
-                            </svg>
-                            {user.activeStatus == 1 ? (
-                              <span className="font-medium text-xs text-green-600">
-                                Active
-                              </span>
-                            ) : (
-                              <span className="font-medium text-xs text-emerald-600">
-                                Inactive
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="flex p-5 gap-2">
-                          {/* Edit */}
-                          <button
-                            onClick={() => handleEdit(user.id)}
-                            className="p-2 rounded-full bg-white transition-all duration-200 hover:bg-orange-500 cursor-pointer"
-                          >
-                            <HiPencilAlt className="w-5 h-5 text-orange-500 hover:text-white" />
-                          </button>
-                          {/* Delete */}
-                          <button
-                            onClick={() => {
-                              setSelectedId(user.id);
-                              setShowConfirm(true);
-                            }}
-                            className="p-2 rounded-full bg-white transition-all duration-200 hover:bg-red-600 cursor-pointer"
-                          >
-                            <HiTrash className="w-5 h-5 text-red-600 hover:text-white" />
-                          </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 p-6">
+            {userData.map((user: User) => (
+              <div
+                key={user.id}
+                className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col"
+              >
+                {/* Image */}
+                <div className="relative w-full h-48 bg-gray-100 rounded-t-xl flex items-center justify-center overflow-hidden">
+                  {user.image ? (
+                    <img
+                      src={user.image}
+                      alt={`${user.firstName} ${user.lastName}`}
+                      className="object-cover w-full h-full"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center text-gray-400">
+                      <svg className="w-16 h-16 mb-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-sm">No Image</span>
+                    </div>
+                  )}
 
-                          {showConfirm && (
-                            <div className="fixed inset-0 z-50 flex items-center justify-center bg-opacity-40 backdrop-blur-sm">
-                              <div className="bg-white rounded-lg p-6 w-full max-w-sm">
-                                <h3 className="text-lg font-semibold mb-4 text-gray-800">
-                                  Are you sure?
-                                </h3>
-                                <p className="text-sm text-gray-600 mb-6">
-                                  Do you really want to delete this record? This
-                                  action cannot be undone.
-                                </p>
+                  {/* ID Badge */}
+                  <span className="absolute top-3 right-3 bg-blue-600 text-white text-xs font-semibold px-2 py-0.5 rounded-md shadow">
+                    #{user.id}
+                  </span>
+                </div>
 
-                                <div className="flex justify-end gap-2 mt-4">
-                                  <button
-                                    onClick={() => {
-                                      setShowConfirm(false);
-                                      setSelectedId(null);
-                                    }}
-                                    className="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300"
-                                  >
-                                    Cancel
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      if (selectedId) {
-                                        handleDelete(selectedId);
-                                      }
-                                      setShowConfirm(false);
-                                      setSelectedId(null);
-                                    }}
-                                    className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700"
-                                  >
-                                    Delete
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                {/* Body */}
+                <div className="p-4 flex-1 flex flex-col gap-2">
+                  <h3 className="text-base font-semibold text-gray-800">
+                    {user.firstName} {user.lastName}
+                  </h3>
+                  
+                  <p className="text-sm text-gray-600">
+                    @{user.username}
+                  </p>
+
+                  <p className="text-sm text-gray-600">
+                    {user.email}
+                  </p>
+
+                  <p className="text-sm text-gray-600">
+                    {user.mobileNumber}
+                  </p>
+
+                  <span className="inline-block text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100">
+                    {user.userRole}
+                  </span>
+                </div>
+
+                {/* Footer */}
+                <div className="flex justify-between items-center px-4 py-3 border-t bg-gray-50 rounded-b-xl">
+                  {user.activeStatus == 1 ? (
+                    <span className="text-xs font-medium px-2 py-0.5 rounded bg-green-50 text-green-700 border border-green-200">
+                      ● Active
+                    </span>
+                  ) : (
+                    <span className="text-xs font-medium px-2 py-0.5 rounded bg-red-50 text-red-600 border border-red-200">
+                      ● Inactive
+                    </span>
+                  )}
+
+                  <div className="flex gap-2">
+                    {/* Edit */}
+                    <button
+                      onClick={() => handleEdit(user.id)}
+                      className="p-2 rounded-md bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm"
+                    >
+                      <HiPencilAlt className="w-4 h-4 text-white" />
+                    </button>
+                    {/* Delete */}
+                    <button
+                      onClick={() => {
+                        setSelectedId(user.id);
+                        setShowConfirm(true);
+                      }}
+                      className="p-2 rounded-md bg-red-500 hover:bg-red-600 transition-colors shadow-sm"
+                    >
+                      <HiTrash className="w-4 h-4 text-white" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {showConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-opacity-40 backdrop-blur-sm">
+            <div className="bg-white rounded-lg p-6 w-full max-w-sm">
+              <h3 className="text-lg font-semibold mb-4 text-gray-800">
+                Are you sure?
+              </h3>
+              <p className="text-sm text-gray-600 mb-6">
+                Do you really want to delete this user? This action cannot be undone.
+              </p>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setShowConfirm(false);
+                    setSelectedId(null);
+                  }}
+                  className="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    if (selectedId) {
+                      handleDelete(selectedId);
+                    }
+                    setShowConfirm(false);
+                    setSelectedId(null);
+                  }}
+                  className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700"
+                >
+                  Delete
+                </button>
               </div>
             </div>
           </div>
@@ -469,7 +552,7 @@ const Users: React.FC = () => {
               className={`px-3 py-2 border text-sm font-medium rounded-l-md ${
                 page === 1
                   ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                  : "bg-white hover:bg-orange-50 text-orange-600"
+                  : "bg-white hover:bg-blue-50 text-blue-600"
               }`}
             >
               Previous
@@ -515,8 +598,8 @@ const Users: React.FC = () => {
                     onClick={() => setPage(p as number)}
                     className={`px-3 py-2 border-t border-b text-sm font-medium ${
                       page === p
-                        ? "bg-orange-500 text-white"
-                        : "bg-white hover:bg-orange-50 text-orange-600"
+                        ? "bg-blue-500 text-white"
+                        : "bg-white hover:bg-blue-50 text-blue-600"
                     }`}
                   >
                     {p}
@@ -532,7 +615,7 @@ const Users: React.FC = () => {
               className={`px-3 py-2 border text-sm font-medium rounded-r-md ${
                 page === totalPages
                   ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                  : "bg-white hover:bg-orange-50 text-orange-600"
+                  : "bg-white hover:bg-blue-50 text-blue-600"
               }`}
             >
               Next
@@ -570,7 +653,7 @@ const Users: React.FC = () => {
                       onChange={(e) => setUsername(e.target.value)}
                       type="text"
                       placeholder="Enter Username"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     />
                   </div>
@@ -583,7 +666,7 @@ const Users: React.FC = () => {
                       onChange={(e) => setEmail(e.target.value)}
                       type="email"
                       placeholder="Enter Email"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     />
                   </div>
@@ -598,7 +681,7 @@ const Users: React.FC = () => {
                       onChange={(e) => setFirstName(e.target.value)}
                       type="text"
                       placeholder="Enter First Name"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     />
                   </div>
@@ -611,7 +694,7 @@ const Users: React.FC = () => {
                       onChange={(e) => setLastName(e.target.value)}
                       type="text"
                       placeholder="Enter Last Name"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     />
                   </div>
@@ -626,7 +709,7 @@ const Users: React.FC = () => {
                       onChange={(e) => setMobileNumber(e.target.value)}
                       type="tel"
                       placeholder="Enter Mobile Number"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     />
                   </div>
@@ -634,14 +717,18 @@ const Users: React.FC = () => {
                     <label className="block mb-1 text-sm font-semibold text-gray-700">
                       User Role *
                     </label>
-                    <input
+                    <select
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      onChange={(e: any) => setUserRole(e.target.value)}
                       value={userRole}
-                      onChange={(e) => setUserRole(e.target.value)}
-                      type="text"
-                      placeholder="Enter User Role"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
-                      required
-                    />
+                    >
+                      <option value="">Select a user role...</option>
+                      {availableUserRoles.map((role) => (
+                        <option key={role.id} value={role.id}>
+                          {role.userRole}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
                 <div className="mb-4">
@@ -653,7 +740,7 @@ const Users: React.FC = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     type="password"
                     placeholder="Enter Password"
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   />
                 </div>
@@ -662,13 +749,41 @@ const Users: React.FC = () => {
                     Status
                   </label>
                   <select
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     onChange={(e: any) => setStatus(e.target.value)}
                     value={status}
                   >
                     <option value={1}>Active</option>
                     <option value={0}>Inactive</option>
                   </select>
+                </div>
+                <div className="mb-4">
+                  <label className="block mb-2 text-sm font-semibold text-gray-700">
+                    Upload Profile Image
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                      if (e.target.files && e.target.files[0]) {
+                        handleUploadImage(e.target.files[0]);
+                      }
+                    }}
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 
+             file:rounded-lg file:border-0 file:text-sm file:font-semibold 
+             file:bg-blue-500 file:text-white hover:file:bg-blue-600"
+                  />
+
+                  {/* Preview */}
+                  {preview && (
+                    <div className="mt-4">
+                      <img
+                        src={preview}
+                        alt="Preview"
+                        className="w-32 h-32 object-cover rounded-lg border shadow"
+                      />
+                    </div>
+                  )}
                 </div>
                 <div className="flex justify-end gap-2 mt-4">
                   <button
@@ -681,7 +796,7 @@ const Users: React.FC = () => {
                   <button
                     type="submit"
                     onClick={handleAddUser}
-                    className="px-5 py-2 rounded-lg bg-orange-500 text-white font-medium hover:bg-orange-600 transition cursor-pointer"
+                    className="px-5 py-2 rounded-lg bg-blue-500 text-white font-medium hover:bg-blue-600 transition cursor-pointer"
                   >
                     Submit
                   </button>
@@ -721,7 +836,7 @@ const Users: React.FC = () => {
                       value={editUsername}
                       onChange={(e) => setEditUsername(e.target.value)}
                       placeholder="Enter Username"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     />
                   </div>
@@ -734,7 +849,7 @@ const Users: React.FC = () => {
                       value={editEmail}
                       onChange={(e) => setEditEmail(e.target.value)}
                       placeholder="Enter Email"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     />
                   </div>
@@ -749,7 +864,7 @@ const Users: React.FC = () => {
                       value={editFirstName}
                       onChange={(e) => setEditFirstName(e.target.value)}
                       placeholder="Enter First Name"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     />
                   </div>
@@ -762,7 +877,7 @@ const Users: React.FC = () => {
                       value={editLastName}
                       onChange={(e) => setEditLastName(e.target.value)}
                       placeholder="Enter Last Name"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     />
                   </div>
@@ -777,7 +892,7 @@ const Users: React.FC = () => {
                       value={editMobileNumber}
                       onChange={(e) => setEditMobileNumber(e.target.value)}
                       placeholder="Enter Mobile Number"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     />
                   </div>
@@ -785,40 +900,60 @@ const Users: React.FC = () => {
                     <label className="block mb-1 text-sm font-semibold text-gray-700">
                       User Role *
                     </label>
-                    <input
-                      type="text"
+                    <select
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       value={editUserRole}
-                      onChange={(e) => setEditUserRole(e.target.value)}
-                      placeholder="Enter User Role"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
-                      required
-                    />
+                      onChange={(e: any) => setEditUserRole(e.target.value)}
+                    >
+                      <option value="">Select a user role...</option>
+                      {availableUserRoles.map((role) => (
+                        <option key={role.id} value={role.id}>
+                          {role.userRole}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                </div>
-                <div className="mb-4">
-                  <label className="block mb-2 text-sm font-semibold text-gray-700">
-                    Password (Leave blank to keep current)
-                  </label>
-                  <input
-                    type="password"
-                    value={editPassword}
-                    onChange={(e) => setEditPassword(e.target.value)}
-                    placeholder="Enter New Password"
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  />
                 </div>
                 <div className="mb-4">
                   <label className="block mb-2 text-sm font-semibold text-gray-700">
                     Status
                   </label>
                   <select
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     value={editUserStatus}
                     onChange={(e: any) => setEditUserStatus(e.target.value)}
                   >
                     <option value={1}>Active</option>
                     <option value={0}>Inactive</option>
                   </select>
+                </div>
+                <div className="mb-4">
+                  <label className="block mb-2 text-sm font-semibold text-gray-700">
+                    Upload Profile Image
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                      if (e.target.files && e.target.files[0]) {
+                        handleUploadEditImage(e.target.files[0]);
+                      }
+                    }}
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 
+             file:rounded-lg file:border-0 file:text-sm file:font-semibold 
+             file:bg-blue-500 file:text-white hover:file:bg-blue-600"
+                  />
+
+                  {/* Preview */}
+                  {editPreview && (
+                    <div className="mt-4">
+                      <img
+                        src={editPreview}
+                        alt="Preview"
+                        className="w-32 h-32 object-cover rounded-lg border shadow"
+                      />
+                    </div>
+                  )}
                 </div>
                 <div className="flex justify-end gap-2 mt-4">
                   <button
@@ -831,7 +966,7 @@ const Users: React.FC = () => {
                   <button
                     onClick={handleUpdateUser}
                     type="submit"
-                    className="px-5 py-2 rounded-lg bg-orange-500 text-white font-medium hover:bg-orange-600 transition cursor-pointer"
+                    className="px-5 py-2 rounded-lg bg-blue-500 text-white font-medium hover:bg-blue-600 transition cursor-pointer"
                   >
                     Update
                   </button>

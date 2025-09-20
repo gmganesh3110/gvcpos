@@ -28,11 +28,12 @@ const Login: React.FC = () => {
     e.preventDefault();
     try {
       const loginResponse: any = await loginAxios("/auth/login", formData);
-      const { token, user } = loginResponse.data;
+      const { token, user ,userRolePermissions} = loginResponse.data;
 
-      dispatch(setCredentials({ token, user }));
+      dispatch(setCredentials({ token, user,userRolePermissions }));
       localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(user));
+      localStorage.setItem("userRolePermissions", JSON.stringify(userRolePermissions));
     } catch (err: any) {
       setError("Login failed. Please check your credentials.");
       console.error("Login failed:", err);

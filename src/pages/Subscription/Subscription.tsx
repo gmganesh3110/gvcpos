@@ -36,8 +36,6 @@ const Subscription: React.FC = () => {
         description: `Subscription - ${plan}`,
         order_id: res.data.orderToken,
         handler: async function (response: any) {
-          // response contains: razorpay_payment_id, razorpay_order_id, razorpay_signature
-          console.log("Payment response:", response);
           const verifyRes:any = await postAxios("/subscription/verify", {
             razorpay_payment_id: response.razorpay_payment_id,
             razorpay_order_id: response.razorpay_order_id,
